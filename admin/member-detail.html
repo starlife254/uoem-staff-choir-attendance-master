@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Member Detail — Staff Choir</title>
+<!-- SHARED ADMIN HEAD -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../supabase-config.js"></script>
+<script src="../cache-helper.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root{
+  --primary:#2563eb;--primary-dark:#1d4ed8;--primary-light:#dbeafe;
+  --green:#10b981;--amber:#f59e0b;--red:#ef4444;
+  --bg:#f8fafc;--surface:#fff;--text:#0f172a;--muted:#64748b;
+  --border:#e2e8f0;--sidebar-w:240px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Inter,sans-serif;background:var(--bg);color:var(--text);font-size:14px}
+.sidebar{position:fixed;top:0;left:0;width:var(--sidebar-w);height:100vh;background:#0f172a;color:#cbd5e1;display:flex;flex-direction:column;padding:20px 14px;z-index:100;overflow-y:auto}
+.sidebar .brand{display:flex;align-items:center;gap:10px;color:#fff;font-weight:700;font-size:16px;padding:0 8px 20px;border-bottom:1px solid #1e293b;margin-bottom:16px}
+.sidebar .brand i{font-size:24px;color:#60a5fa}
+.nav-group{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#64748b;padding:12px 10px 6px;font-weight:600}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;color:#cbd5e1;text-decoration:none;font-size:14px;font-weight:500;margin-bottom:2px;position:relative;transition:.15s}
+.nav-item:hover{background:#1e293b;color:#fff}
+.nav-item.active{background:var(--primary);color:#fff}
+.nav-item i{font-size:18px}
+.badge{margin-left:auto;background:var(--amber);color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px}
+.badge.today{background:var(--green)}
+.main{margin-left:var(--sidebar-w);padding:24px 28px 80px;min-height:100vh}
+.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px}
+.topbar h1{font-size:22px;font-weight:700}
+.topbar .user{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted)}
+.avatar{width:36px;height:36px;border-radius:50%;background:var(--primary-light);color:var(--primary);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px}
+.btn{padding:10px 16px;border-radius:8px;border:none;background:var(--primary);color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:6px;transition:.15s}
+.btn:hover{background:var(--primary-dark)}
+.btn.ghost{background:#fff;color:var(--text);border:1.5px solid var(--border)}
+.btn.ghost:hover{background:#f1f5f9}
+.btn.danger{background:var(--red)}
+.btn.success{background:var(--green)}
+.btn.amber{background:var(--amber)}
+.btn.sm{padding:6px 10px;font-size:12px}
+.card{background:var(--surface);border-radius:12px;padding:20px;border:1px solid var(--border);box-shadow:0 1px 3px rgba(0,0,0,.03)}
+.grid{display:grid;gap:16px}
+.kpis{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.kpi{background:var(--surface);border-radius:12px;padding:20px;border:1px solid var(--border)}
+.kpi .label{font-size:12px;color:var(--muted);text-transform:uppercase;font-weight:600;letter-spacing:.04em}
+.kpi .value{font-size:28px;font-weight:800;margin-top:6px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--border)}
+th{background:#f8fafc;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:700}
+tr:hover td{background:#f8fafc}
+.pill{padding:3px 9px;border-radius:12px;font-size:11px;font-weight:600;display:inline-block}
+.pill.green{background:#d1fae5;color:#065f46}
+.pill.amber{background:#fef3c7;color:#92400e}
+.pill.red{background:#fee2e2;color:#991b1b}
+.pill.blue{background:var(--primary-light);color:var(--primary-dark)}
+.pill.gray{background:#f1f5f9;color:#475569}
+input,select,textarea{padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:13px;background:#fff;color:var(--text);transition:.15s}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-light)}
+.mobile-nav{display:none}
+@media(max-width:900px){
+  .sidebar{transform:translateX(-100%);transition:.25s}
+  .sidebar.open{transform:translateX(0)}
+  .main{margin-left:0;padding:16px 14px 90px}
+  .mobile-nav{display:flex;position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--border);z-index:99;padding:8px 4px;justify-content:space-around}
+  .mobile-nav a{flex:1;text-align:center;color:var(--muted);text-decoration:none;font-size:10px;font-weight:600;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 0}
+  .mobile-nav a.active{color:var(--primary)}
+  .mobile-nav a i{font-size:20px}
+  .hamburger{display:flex!important}
+  table{font-size:12px}
+  .grid.kpis{grid-template-columns:repeat(2,1fr)}
+}
+.hamburger{display:none;background:none;border:none;font-size:22px;color:var(--text);cursor:pointer}
+.hidden{display:none!important}
+</style>
+</head><body>
+
+<!-- SHARED ADMIN SHELL -->
+<aside class="sidebar" id="sidebar">
+  <div class="brand"><i class="ti ti-music"></i> Staff Choir</div>
+  <div class="nav-group">Main</div>
+  <a class="nav-item" href="index.html"><i class="ti ti-layout-dashboard"></i> Dashboard</a>
+  <a class="nav-item" href="mark-attendance.html"><i class="ti ti-checklist"></i> Mark Attendance <span class="badge today">Today</span></a>
+  <a class="nav-item" href="reports.html"><i class="ti ti-file-analytics"></i> Reports</a>
+  <a class="nav-item" href="analytics.html"><i class="ti ti-chart-line"></i> Analytics</a>
+  <div class="nav-group">Management</div>
+  <a class="nav-item" href="apologies.html"><i class="ti ti-mail"></i> Apologies <span class="badge" id="apologyBadge">0</span></a>
+  <a class="nav-item" href="members.html"><i class="ti ti-users"></i> Members</a>
+  <a class="nav-item" href="manage-members.html"><i class="ti ti-user-cog"></i> Manage Members</a>
+  <a class="nav-item" href="executive.html"><i class="ti ti-crown"></i> Executive</a>
+   <div class="sidebar-foot">
+    <a class="nav-item" href="#" onclick="logout();return false;"><i class="ti ti-logout"></i> Logout</a>
+  </div>
+</aside>
+
+<main class="main">
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:12px">
+      <button class="hamburger" onclick="document.getElementById('sidebar').classList.toggle('open')"><i class="ti ti-menu-2"></i></button>
+      <h1 id="pageTitle">Member Detail</h1>
+    </div>
+    <div class="user">
+      <div class="avatar" id="userAvatar">A</div>
+      <span id="userEmail">admin</span>
+    </div>
+  </div>
+
+  <!-- PAGE CONTENT -->
+  <div id="content">Loading…</div>
+</main>
+
+<nav class="mobile-nav">
+  <a href="index.html"><i class="ti ti-layout-dashboard"></i>Home</a>
+  <a href="mark-attendance.html"><i class="ti ti-checklist"></i>Mark</a>
+  <a href="reports.html"><i class="ti ti-file-analytics"></i>Reports</a>
+  <a href="analytics.html"><i class="ti ti-chart-line"></i>Analytics</a>
+</nav>
+
+<script>
+// Shared shell init
+document.querySelectorAll('.nav-item, .mobile-nav a').forEach(a => {
+  if (a.getAttribute('href') === location.pathname.split('/').pop()) a.classList.add('active');
+});
+(async () => {
+  const session = await requireAuth("admin");
+  if (!session) return;
+  document.getElementById('userEmail').textContent = session.user.email;
+  document.getElementById('userAvatar').textContent = initials(session.user.email.split('@')[0]);
+  const { count } = await sb.from('apology_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending');
+  const b = document.getElementById('apologyBadge');
+  if (b) { b.textContent = count || 0; if (!count) b.style.display = 'none'; }
+})();
+
+// Page logic
+const params = new URLSearchParams(location.search);
+const memberId = params.get('id');
+
+async function load() {
+  if (!memberId) { document.getElementById('content').innerHTML = '<div class="card">No member specified.</div>'; return; }
+  const { data: m, error } = await sb.from('members').select('*').eq('member_id', memberId).maybeSingle();
+  if (error || !m) { document.getElementById('content').innerHTML = '<div class="card">Member not found.</div>'; return; }
+
+  const { data: att } = await sb.from('attendance').select('*').eq('member_id', memberId).order('date', { ascending: false });
+  const present = (att || []).filter(a => a.status === 'Present').length;
+  const late = (att || []).filter(a => a.status === 'Late').length;
+  const absent = (att || []).filter(a => a.status === 'Absent').length;
+  const total = present + late + absent;
+  const rate = total ? Math.round((present + late) / total * 100) : 0;
+
+  const { data: prof } = await sb.from('user_profiles').select('*').eq('member_id', memberId).maybeSingle();
+
+  document.getElementById('content').innerHTML = `
+    <div class="card">
+      <div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap">
+        <div class="avatar" style="width:72px;height:72px;font-size:24px">${initials(m.name)}</div>
+        <div style="flex:1">
+          <h2 style="font-size:20px">${m.name}</h2>
+          <div style="color:var(--muted);font-size:13px;margin-top:4px">
+            ${m.member_id} · <span class="pill blue">${m.voice_part}</span> · ${m.department || 'No dept'} · ${m.email || 'No email'}
+          </div>
+        </div>
+      </div>
+      ${prof?.emergency_contact ? `<div style="margin-top:18px;padding-top:18px;border-top:1px solid var(--border)">
+        <h4 style="margin-bottom:8px;font-size:14px"><i class="ti ti-phone"></i> Emergency Contact</h4>
+        <div style="font-size:13px;color:var(--muted)">
+          ${prof.emergency_contact} (${prof.emergency_relationship || 'contact'}) — ${prof.emergency_phone || '—'}
+        </div>
+      </div>` : ''}
+    </div>
+
+    <div class="grid kpis" style="margin-top:16px">
+      <div class="kpi"><div class="label">Present</div><div class="value" style="color:var(--green)">${present}</div></div>
+      <div class="kpi"><div class="label">Late</div><div class="value" style="color:var(--amber)">${late}</div></div>
+      <div class="kpi"><div class="label">Absent</div><div class="value" style="color:var(--red)">${absent}</div></div>
+      <div class="kpi"><div class="label">Attendance Rate</div><div class="value">${rate}%</div></div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <h3 style="margin-bottom:16px;font-size:15px">Recent Attendance (last 30 records)</h3>
+      <div style="overflow-x:auto"><table><thead><tr><th>Date</th><th>Session</th><th>Status</th><th>Apology</th></tr></thead><tbody>
+        ${(att || []).slice(0, 30).map(a => `<tr>
+          <td>${fmtDate(a.date)}</td>
+          <td>${a.session}</td>
+          <td><span class="pill ${a.status === 'Present' ? 'green' : a.status === 'Late' ? 'amber' : 'red'}">${a.status}</span></td>
+          <td>${a.apology_approved ? '<i class="ti ti-check" style="color:var(--green)"></i> Approved' : '—'}</td>
+        </tr>`).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:20px">No records</td></tr>'}
+      </tbody></table></div>
+    </div>
+  `;
+}
+load();
+</script>
+</body></html>

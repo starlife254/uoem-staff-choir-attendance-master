@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Register — Staff Choir</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../supabase-config.js"></script>
+<style>
+body{font-family:Inter,sans-serif;background:linear-gradient(135deg,#1e3a8a,#2563eb);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;margin:0}
+.card{background:#fff;border-radius:20px;padding:36px 30px;width:100%;max-width:440px;box-shadow:0 25px 50px rgba(0,0,0,.25)}
+h1{font-size:20px;text-align:center;margin:0 0 6px}
+p.sub{text-align:center;color:#64748b;font-size:13px;margin:0 0 24px}
+label{font-size:12px;font-weight:600;color:#334155;display:block;margin-bottom:4px}
+input{width:100%;padding:11px 13px;border:1.5px solid #e2e8f0;border-radius:9px;font-family:inherit;font-size:13px;margin-bottom:14px;box-sizing:border-box}
+input:focus{outline:none;border-color:#2563eb;box-shadow:0 0 0 3px #dbeafe}
+button{width:100%;padding:12px;background:#2563eb;color:#fff;border:none;border-radius:9px;font-weight:600;font-size:14px;cursor:pointer;font-family:inherit}
+button:hover{background:#1d4ed8}
+button:disabled{opacity:.6;cursor:not-allowed}
+.msg{padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:14px;display:none}
+.msg.err{background:#fee2e2;color:#991b1b;display:block}
+.msg.ok{background:#d1fae5;color:#065f46;display:block}
+a{color:#2563eb;font-weight:600;text-decoration:none}
+.foot{text-align:center;margin-top:16px;font-size:13px;color:#64748b}
+</style>
+</head>
+<body>
+<form class="card" id="regForm">
+  <h1>Create Account</h1>
+  <p class="sub">Your email must be registered by an admin</p>
+  <div class="msg" id="msg"></div>
+  <label>Email</label>
+  <input type="email" id="email" required placeholder="you@embuni.ac.ke">
+  <label>Password</label>
+  <input type="password" id="password" minlength="6" required placeholder="Min 6 characters">
+  <label>Confirm Password</label>
+  <input type="password" id="confirm" minlength="6" required>
+  <button type="submit" id="btn">Register</button>
+  <p class="foot">Already registered? <a href="../login.html">Sign in</a></p>
+</form>
+<script>
+const $ = s => document.querySelector(s);
+const msg = $("#msg");
+function show(text, cls="err"){ msg.textContent = text; msg.className = "msg " + cls; }
+
+$("#regForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const email = $("#email").value.trim().toLowerCase();
+  const pw = $("#password").value;
+  const cf = $("#confirm").value;
+  msg.className = "msg";
+  if (pw !== cf) return show("Passwords do not match");
+  const btn = $("#btn"); btn.disabled = true; btn.textContent = "Creating…";
+
+  try {
+    // Verify member exists
+    const { data: member, error: mErr } = await sb.from("members").select("member_id,name,status")
+      .eq("email", email).maybeSingle();
+    if (mErr) throw mErr;
+    if (!member) throw new Error("Your email is not registered. Contact an admin.");
+    if (member.status !== "active") throw new Error("Your membership is not active.");
+
+    // Sign up
+    const { data: auth, error: aErr } = await sb.auth.signUp({ email, password: pw });
+    if (aErr) throw aErr;
+    const uid = auth.user?.id;
+    if (!uid) throw new Error("Signup failed. Email may already be registered.");
+
+    // Link member
+    await sb.from("user_members").insert({ user_id: uid, member_id: member.member_id });
+    await sb.from("user_profiles").upsert({
+      user_id: uid, member_id: member.member_id, full_name: member.name, role: "member"
+    });
+    await sb.from("user_roles").upsert({ email, role: "member" });
+
+    show("Account created! Redirecting…", "ok");
+    setTimeout(() => location.href = "../login.html", 1200);
+  } catch (err) {
+    show(err.message || "Registration failed");
+  } finally {
+    btn.disabled = false; btn.textContent = "Register";
+  }
+});
+</script>
+</body>
+</html>

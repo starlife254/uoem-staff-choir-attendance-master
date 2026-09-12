@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manage Members — Staff Choir</title>
+<!-- SHARED ADMIN HEAD -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../supabase-config.js"></script>
+<script src="../cache-helper.js"></script>
+<style>
+:root{
+  --primary:#2563eb;--primary-dark:#1d4ed8;--primary-light:#dbeafe;
+  --green:#10b981;--amber:#f59e0b;--red:#ef4444;
+  --bg:#f8fafc;--surface:#fff;--text:#0f172a;--muted:#64748b;
+  --border:#e2e8f0;--sidebar-w:240px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Inter,sans-serif;background:var(--bg);color:var(--text);font-size:14px}
+.sidebar{position:fixed;top:0;left:0;width:var(--sidebar-w);height:100vh;background:#0f172a;color:#cbd5e1;display:flex;flex-direction:column;padding:20px 14px;z-index:100;overflow-y:auto}
+.sidebar .brand{display:flex;align-items:center;gap:10px;color:#fff;font-weight:700;font-size:16px;padding:0 8px 20px;border-bottom:1px solid #1e293b;margin-bottom:16px}
+.sidebar .brand i{font-size:24px;color:#60a5fa}
+.nav-group{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#64748b;padding:12px 10px 6px;font-weight:600}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;color:#cbd5e1;text-decoration:none;font-size:14px;font-weight:500;margin-bottom:2px;position:relative;transition:.15s}
+.nav-item:hover{background:#1e293b;color:#fff}
+.nav-item.active{background:var(--primary);color:#fff}
+.nav-item i{font-size:18px}
+.badge{margin-left:auto;background:var(--amber);color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px}
+.badge.today{background:var(--green)}
+.main{margin-left:var(--sidebar-w);padding:24px 28px 80px;min-height:100vh}
+.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px}
+.topbar h1{font-size:22px;font-weight:700}
+.topbar .user{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted)}
+.avatar{width:36px;height:36px;border-radius:50%;background:var(--primary-light);color:var(--primary);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px}
+.btn{padding:10px 16px;border-radius:8px;border:none;background:var(--primary);color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:6px;transition:.15s}
+.btn:hover{background:var(--primary-dark)}
+.btn.ghost{background:#fff;color:var(--text);border:1.5px solid var(--border)}
+.btn.ghost:hover{background:#f1f5f9}
+.btn.danger{background:var(--red)}
+.btn.success{background:var(--green)}
+.btn.amber{background:var(--amber)}
+.btn.sm{padding:6px 10px;font-size:12px}
+.card{background:var(--surface);border-radius:12px;padding:20px;border:1px solid var(--border);box-shadow:0 1px 3px rgba(0,0,0,.03)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--border)}
+th{background:#f8fafc;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:700}
+tr:hover td{background:#f8fafc}
+.pill{padding:3px 9px;border-radius:12px;font-size:11px;font-weight:600;display:inline-block}
+.pill.green{background:#d1fae5;color:#065f46}
+.pill.amber{background:#fef3c7;color:#92400e}
+.pill.red{background:#fee2e2;color:#991b1b}
+.pill.blue{background:var(--primary-light);color:var(--primary-dark)}
+.pill.gray{background:#f1f5f9;color:#475569}
+input,select,textarea{padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:13px;background:#fff;color:var(--text);transition:.15s}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-light)}
+.mobile-nav{display:none}
+@media(max-width:900px){
+  .sidebar{transform:translateX(-100%);transition:.25s}
+  .sidebar.open{transform:translateX(0)}
+  .main{margin-left:0;padding:16px 14px 90px}
+  .mobile-nav{display:flex;position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--border);z-index:99;padding:8px 4px;justify-content:space-around}
+  .mobile-nav a{flex:1;text-align:center;color:var(--muted);text-decoration:none;font-size:10px;font-weight:600;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 0}
+  .mobile-nav a.active{color:var(--primary)}
+  .mobile-nav a i{font-size:20px}
+  .hamburger{display:flex!important}
+  table{font-size:12px}
+}
+.hamburger{display:none;background:none;border:none;font-size:22px;color:var(--text);cursor:pointer}
+.hidden{display:none!important}
+
+/* page-specific */
+.tabs{display:flex;gap:4px;background:#f1f5f9;padding:4px;border-radius:10px;margin-bottom:20px;overflow-x:auto}
+.tab{padding:9px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;color:var(--muted);white-space:nowrap}
+.tab.active{background:#fff;color:var(--primary);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.form-grid label{font-size:12px;font-weight:600;color:var(--muted);margin-bottom:4px;display:block}
+.form-grid input,.form-grid select{width:100%}
+</style>
+</head><body>
+
+<!-- SHARED ADMIN SHELL -->
+<aside class="sidebar" id="sidebar">
+  <div class="brand"><i class="ti ti-music"></i> Staff Choir</div>
+  <div class="nav-group">Main</div>
+  <a class="nav-item" href="index.html"><i class="ti ti-layout-dashboard"></i> Dashboard</a>
+  <a class="nav-item" href="mark-attendance.html"><i class="ti ti-checklist"></i> Mark Attendance <span class="badge today">Today</span></a>
+  <a class="nav-item" href="reports.html"><i class="ti ti-file-analytics"></i> Reports</a>
+  <a class="nav-item" href="analytics.html"><i class="ti ti-chart-line"></i> Analytics</a>
+  <div class="nav-group">Management</div>
+  <a class="nav-item" href="apologies.html"><i class="ti ti-mail"></i> Apologies <span class="badge" id="apologyBadge">0</span></a>
+  <a class="nav-item" href="members.html"><i class="ti ti-users"></i> Members</a>
+  <a class="nav-item" href="manage-members.html"><i class="ti ti-user-cog"></i> Manage Members</a>
+  <a class="nav-item" href="executive.html"><i class="ti ti-crown"></i> Executive</a>
+   <div class="sidebar-foot">
+    <a class="nav-item" href="#" onclick="logout();return false;"><i class="ti ti-logout"></i> Logout</a>
+  </div>
+</aside>
+
+<main class="main">
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:12px">
+      <button class="hamburger" onclick="document.getElementById('sidebar').classList.toggle('open')"><i class="ti ti-menu-2"></i></button>
+      <h1 id="pageTitle">Manage Members</h1>
+    </div>
+    <div class="user">
+      <div class="avatar" id="userAvatar">A</div>
+      <span id="userEmail">admin</span>
+    </div>
+  </div>
+
+  <!-- PAGE CONTENT -->
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('add',this)"><i class="ti ti-user-plus"></i> Add Member</div>
+    <div class="tab" onclick="switchTab('active',this)"><i class="ti ti-users"></i> Active</div>
+    <div class="tab" onclick="switchTab('alumni',this)"><i class="ti ti-user-off"></i> Alumni</div>
+  </div>
+
+  <div id="tab-add" class="tab-pane">
+    <div class="card">
+      <h3 style="margin-bottom:16px;font-size:16px">Add New Member</h3>
+      <div class="form-grid">
+        <div><label>Full Name *</label><input id="nName"></div>
+        <div><label>Voice Part *</label>
+          <select id="nVoice"><option>Soprano</option><option>Alto</option><option>Tenor</option><option>Bass</option></select>
+        </div>
+        <div><label>Department</label><input id="nDept" placeholder="e.g. Library"></div>
+        <div><label>Email</label><input type="email" id="nEmail"></div>
+        <div><label>Phone</label><input id="nPhone"></div>
+        <div><label>Joined Date</label><input type="date" id="nJoined"></div>
+      </div>
+      <button class="btn" style="margin-top:18px" onclick="addMember()"><i class="ti ti-check"></i> Add Member</button>
+    </div>
+  </div>
+
+  <div id="tab-active" class="tab-pane hidden">
+    <div class="card"><div id="activeList">Loading…</div></div>
+  </div>
+
+  <div id="tab-alumni" class="tab-pane hidden">
+    <div class="card"><div id="alumniList">Loading…</div></div>
+  </div>
+</main>
+
+<nav class="mobile-nav">
+  <a href="index.html"><i class="ti ti-layout-dashboard"></i>Home</a>
+  <a href="mark-attendance.html"><i class="ti ti-checklist"></i>Mark</a>
+  <a href="reports.html"><i class="ti ti-file-analytics"></i>Reports</a>
+  <a href="analytics.html"><i class="ti ti-chart-line"></i>Analytics</a>
+</nav>
+
+<script>
+// Shared shell init
+document.querySelectorAll('.nav-item, .mobile-nav a').forEach(a => {
+  if (a.getAttribute('href') === location.pathname.split('/').pop()) a.classList.add('active');
+});
+(async () => {
+  const session = await requireAuth("admin");
+  if (!session) return;
+  document.getElementById('userEmail').textContent = session.user.email;
+  document.getElementById('userAvatar').textContent = initials(session.user.email.split('@')[0]);
+  const { count } = await sb.from('apology_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending');
+  const b = document.getElementById('apologyBadge');
+  if (b) { b.textContent = count || 0; if (!count) b.style.display = 'none'; }
+})();
+
+// Page logic
+function switchTab(name, el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.add('hidden'));
+  document.getElementById('tab-' + name).classList.remove('hidden');
+  if (name === 'active') loadList('active');
+  if (name === 'alumni') loadList('alumni');
+}
+
+async function nextMemberId() {
+  const { data } = await sb.from('members').select('member_id').order('member_id', { ascending: false }).limit(1);
+  const last = data?.[0]?.member_id || 'STF000';
+  const n = parseInt(last.replace('STF', '')) + 1;
+  return 'STF' + String(n).padStart(3, '0');
+}
+
+async function addMember() {
+  const name = document.getElementById('nName').value.trim();
+  if (!name) return toast('Name is required', 'error');
+  const mid = await nextMemberId();
+  const payload = {
+    member_id: mid,
+    name,
+    voice_part: document.getElementById('nVoice').value,
+    department: document.getElementById('nDept').value.trim(),
+    email: document.getElementById('nEmail').value.trim() || null,
+    contact: document.getElementById('nPhone').value.trim(),
+    joined_date: document.getElementById('nJoined').value || todayISO()
+  };
+  const { error } = await sb.from('members').insert(payload);
+  if (error) return toast(error.message, 'error');
+  toast(`Member ${mid} added ✓`, 'success');
+  ['nName','nDept','nEmail','nPhone','nJoined'].forEach(id => document.getElementById(id).value = '');
+}
+
+async function loadList(status) {
+  const target = status === 'active' ? 'activeList' : 'alumniList';
+  const { data, error } = await sb.from('members').select('*').eq('status', status).order('name');
+  if (error) return;
+  const rows = data || [];
+  if (!rows.length) { document.getElementById(target).innerHTML = '<p style="color:var(--muted);padding:20px;text-align:center">No ' + status + ' members.</p>'; return; }
+  document.getElementById(target).innerHTML = `
+    <div style="overflow-x:auto"><table><thead><tr><th>Name</th><th>ID</th><th>Voice</th><th>Actions</th></tr></thead><tbody>
+      ${rows.map(m => `<tr>
+        <td><strong>${m.name}</strong></td>
+        <td>${m.member_id}</td>
+        <td><span class="pill blue">${m.voice_part}</span></td>
+        <td>${status === 'active'
+          ? `<button class="btn amber sm" onclick="setStatus('${m.member_id}','alumni')">Move to Alumni</button>
+             <button class="btn danger sm" onclick="setStatus('${m.member_id}','removed')">Remove</button>`
+          : `<button class="btn success sm" onclick="setStatus('${m.member_id}','active')">Reactivate</button>
+             <button class="btn danger sm" onclick="deleteMember('${m.member_id}')">Delete</button>`}
+        </td></tr>`).join('')}
+    </tbody></table></div>`;
+}
+
+async function setStatus(mid, status) {
+  const { error } = await sb.from('members').update({ status, updated_at: new Date().toISOString() }).eq('member_id', mid);
+  if (error) return toast(error.message, 'error');
+  toast(`Member ${status}`, 'success');
+  loadList(status === 'active' ? 'alumni' : 'active');
+}
+
+async function deleteMember(mid) {
+  if (!confirm('Permanently delete this member?')) return;
+  const { error } = await sb.from('members').delete().eq('member_id', mid);
+  if (error) return toast(error.message, 'error');
+  toast('Member deleted', 'success');
+  loadList('alumni');
+}
+</script>
+</body></html>

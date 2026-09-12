@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Apologies — Staff Choir</title>
+<!-- SHARED ADMIN HEAD -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../supabase-config.js"></script>
+<script src="../cache-helper.js"></script>
+<style>
+:root{
+  --primary:#2563eb;--primary-dark:#1d4ed8;--primary-light:#dbeafe;
+  --green:#10b981;--amber:#f59e0b;--red:#ef4444;
+  --bg:#f8fafc;--surface:#fff;--text:#0f172a;--muted:#64748b;
+  --border:#e2e8f0;--sidebar-w:240px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Inter,sans-serif;background:linear-gradient(135deg,#f8fafc 0%,#eef2f7 100%);color:var(--text);font-size:14px;min-height:100vh}
+.sidebar{position:fixed;top:0;left:0;width:var(--sidebar-w);height:100vh;background:linear-gradient(180deg,#0f172a 0%,#111c33 100%);color:#cbd5e1;display:flex;flex-direction:column;padding:20px 14px;z-index:100;overflow-y:auto}
+.sidebar .brand{display:flex;align-items:center;gap:10px;color:#fff;font-weight:700;font-size:16px;padding:0 8px 20px;border-bottom:1px solid #1e293b;margin-bottom:16px}
+.sidebar .brand i{font-size:24px;color:#60a5fa}
+.nav-group{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#64748b;padding:12px 10px 6px;font-weight:600}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;color:#cbd5e1;text-decoration:none;font-size:14px;font-weight:500;margin-bottom:2px;position:relative;transition:.15s}
+.nav-item:hover{background:#1e293b;color:#fff}
+.nav-item.active{background:var(--primary);color:#fff;box-shadow:0 0 0 2px rgba(37,99,235,.3)}
+.nav-item i{font-size:18px}
+.badge{margin-left:auto;background:var(--amber);color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px}
+.badge.today{background:var(--green)}
+.main{margin-left:var(--sidebar-w);padding:24px 28px 80px;min-height:100vh}
+.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;padding-bottom:16px;border-bottom:1px solid var(--border)}
+.topbar h1{font-size:22px;font-weight:700}
+.topbar .user{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted)}
+.avatar{width:36px;height:36px;border-radius:50%;background:var(--primary-light);color:var(--primary);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px}
+.btn{padding:10px 16px;border-radius:8px;border:none;background:var(--primary);color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:6px;transition:.15s}
+.btn:hover{background:var(--primary-dark);transform:translateY(-1px);box-shadow:0 4px 12px rgba(37,99,235,.2)}
+.btn.ghost{background:#fff;color:var(--text);border:1.5px solid var(--border)}
+.btn.ghost:hover{background:#f1f5f9;box-shadow:0 4px 12px rgba(0,0,0,.06)}
+.btn.danger{background:var(--red)}
+.btn.success{background:var(--green)}
+.btn.amber{background:var(--amber)}
+.btn.sm{padding:6px 10px;font-size:12px}
+.card{background:var(--surface);border-radius:12px;padding:20px;border:1px solid var(--border);box-shadow:0 2px 8px rgba(15,23,42,.04)}
+.grid{display:grid;gap:16px}
+.kpis{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.kpi{background:var(--surface);border-radius:12px;padding:20px;border:1px solid var(--border);border-left:4px solid var(--border);transition:transform .15s,box-shadow .15s}
+.kpi:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgba(15,23,42,.08)}
+.kpi:nth-child(1){border-left-color:var(--amber)}
+.kpi:nth-child(2){border-left-color:var(--green)}
+.kpi:nth-child(3){border-left-color:var(--red)}
+.kpi:nth-child(4){border-left-color:var(--primary)}
+.kpi .label{font-size:12px;color:var(--muted);text-transform:uppercase;font-weight:600;letter-spacing:.04em}
+.kpi .value{font-size:28px;font-weight:800;margin-top:6px}
+.pill{padding:3px 9px;border-radius:12px;font-size:11px;font-weight:600;display:inline-block}
+.pill.green{background:#d1fae5;color:#065f46}
+.pill.amber{background:#fef3c7;color:#92400e}
+.pill.red{background:#fee2e2;color:#991b1b}
+.pill.blue{background:var(--primary-light);color:var(--primary-dark)}
+.pill.gray{background:#f1f5f9;color:#475569}
+input,select,textarea{padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:13px;background:#fff;color:var(--text);transition:.15s}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-light)}
+.mobile-nav{display:none}
+@media(max-width:900px){
+  .sidebar{transform:translateX(-100%);transition:.25s}
+  .sidebar.open{transform:translateX(0)}
+  .main{margin-left:0;padding:16px 14px 90px}
+  .mobile-nav{display:flex;position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--border);z-index:99;padding:8px 4px;justify-content:space-around;box-shadow:0 -4px 12px rgba(15,23,42,.06)}
+  .mobile-nav a{flex:1;text-align:center;color:var(--muted);text-decoration:none;font-size:10px;font-weight:600;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 0}
+  .mobile-nav a.active{color:var(--primary)}
+  .mobile-nav a i{font-size:20px}
+  .hamburger{display:flex!important}
+  .grid.kpis{grid-template-columns:repeat(2,1fr)}
+}
+.hamburger{display:none;background:none;border:none;font-size:22px;color:var(--text);cursor:pointer}
+.hidden{display:none!important}
+
+/* page-specific */
+.filters{display:flex;gap:10px;flex-wrap:wrap}
+.filters select{min-width:160px}
+.apology-card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:12px;transition:box-shadow .2s,border-color .2s}
+.apology-card:hover{box-shadow:0 4px 16px rgba(15,23,42,.08);border-color:#cbd5e1}
+.apology-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.reason-box{background:#f1f5f9;border-left:3px solid var(--primary);padding:10px 14px;border-radius:6px;font-size:13px;color:#334155;margin-bottom:12px;font-style:italic}
+.actions-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+</style>
+</head><body>
+
+<!-- SHARED ADMIN SHELL -->
+<aside class="sidebar" id="sidebar">
+  <div class="brand"><i class="ti ti-music"></i> Staff Choir</div>
+  <div class="nav-group">Main</div>
+  <a class="nav-item" href="index.html"><i class="ti ti-layout-dashboard"></i> Dashboard</a>
+  <a class="nav-item" href="mark-attendance.html"><i class="ti ti-checklist"></i> Mark Attendance <span class="badge today">Today</span></a>
+  <a class="nav-item" href="reports.html"><i class="ti ti-file-analytics"></i> Reports</a>
+  <a class="nav-item" href="analytics.html"><i class="ti ti-chart-line"></i> Analytics</a>
+  <div class="nav-group">Management</div>
+  <a class="nav-item" href="apologies.html"><i class="ti ti-mail"></i> Apologies <span class="badge" id="apologyBadge">0</span></a>
+  <a class="nav-item" href="members.html"><i class="ti ti-users"></i> Members</a>
+  <a class="nav-item" href="manage-members.html"><i class="ti ti-user-cog"></i> Manage Members</a>
+  <a class="nav-item" href="executive.html"><i class="ti ti-crown"></i> Executive</a>
+  <div class="sidebar-foot">
+    <a class="nav-item" href="#" onclick="logout();return false;"><i class="ti ti-logout"></i> Logout</a>
+  </div>
+</aside>
+
+<main class="main">
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:12px">
+      <button class="hamburger" onclick="document.getElementById('sidebar').classList.toggle('open')"><i class="ti ti-menu-2"></i></button>
+      <h1 id="pageTitle">Apologies</h1>
+    </div>
+    <div class="user">
+      <div class="avatar" id="userAvatar">A</div>
+      <span id="userEmail">admin</span>
+    </div>
+  </div>
+
+  <!-- PAGE CONTENT -->
+  <div class="grid kpis">
+    <div class="kpi"><div class="label">Pending</div><div class="value" style="color:var(--amber)" id="kPending">0</div></div>
+    <div class="kpi"><div class="label">Approved</div><div class="value" style="color:var(--green)" id="kApproved">0</div></div>
+    <div class="kpi"><div class="label">Rejected</div><div class="value" style="color:var(--red)" id="kRejected">0</div></div>
+    <div class="kpi"><div class="label">Total</div><div class="value" id="kTotal">0</div></div>
+  </div>
+
+  <div class="card" style="margin-top:20px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+      <h3 style="font-size:15px"><i class="ti ti-mail"></i> Apology Requests</h3>
+      <div class="filters">
+        <select id="fStatus" onchange="loadApologies()">
+          <option value="">All Status</option>
+          <option value="pending">Pending</option>
+          <option value="approved">Approved</option>
+          <option value="rejected">Rejected</option>
+        </select>
+        <select id="fType" onchange="loadApologies()">
+          <option value="">All Types</option>
+          <option value="late">Late</option>
+          <option value="absent">Absent</option>
+        </select>
+      </div>
+    </div>
+    <div id="list">Loading…</div>
+  </div>
+</main>
+
+<nav class="mobile-nav">
+  <a href="index.html"><i class="ti ti-layout-dashboard"></i>Home</a>
+  <a href="mark-attendance.html"><i class="ti ti-checklist"></i>Mark</a>
+  <a href="reports.html"><i class="ti ti-file-analytics"></i>Reports</a>
+  <a href="analytics.html"><i class="ti ti-chart-line"></i>Analytics</a>
+</nav>
+
+<script>
+// Shared shell init
+document.querySelectorAll('.nav-item, .mobile-nav a').forEach(a => {
+  if (a.getAttribute('href') === location.pathname.split('/').pop()) a.classList.add('active');
+});
+(async () => {
+  const session = await requireAuth("admin");
+  if (!session) return;
+  document.getElementById('userEmail').textContent = session.user.email;
+  document.getElementById('userAvatar').textContent = initials(session.user.email.split('@')[0]);
+  const { count } = await sb.from('apology_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending');
+  const b = document.getElementById('apologyBadge');
+  if (b) { b.textContent = count || 0; if (!count) b.style.display = 'none'; }
+})();
+
+// Page logic
+async function loadApologies() {
+  document.getElementById('list').innerHTML = '<div style="text-align:center;padding:30px"><i class="ti ti-loader-2" style="font-size:24px;animation:spin 1s linear infinite;color:var(--muted)"></i></div>';
+  const fStatus = document.getElementById('fStatus').value;
+  const fType = document.getElementById('fType').value;
+  let q = sb.from('apology_requests').select('*').order('created_at', { ascending: false });
+  if (fStatus) q = q.eq('status', fStatus);
+  if (fType) q = q.eq('apology_type', fType);
+  const { data: apologies, error } = await q;
+  if (error) return toast(error.message, 'error');
+
+  const { data: all } = await sb.from('apology_requests').select('status');
+  const pending = (all || []).filter(a => a.status === 'pending').length;
+  const approved = (all || []).filter(a => a.status === 'approved').length;
+  const rejected = (all || []).filter(a => a.status === 'rejected').length;
+  document.getElementById('kPending').textContent = pending;
+  document.getElementById('kApproved').textContent = approved;
+  document.getElementById('kRejected').textContent = rejected;
+  document.getElementById('kTotal').textContent = (all || []).length;
+
+  if (!apologies || !apologies.length) {
+    document.getElementById('list').innerHTML = '<p style="color:var(--muted);padding:20px;text-align:center">No apologies found.</p>';
+    return;
+  }
+
+  const ids = [...new Set(apologies.map(a => a.member_id))];
+  const { data: mems } = await sb.from('members').select('member_id,name,voice_part,department').in('member_id', ids);
+  const map = Object.fromEntries((mems || []).map(m => [m.member_id, m]));
+
+  apologies.sort((a, b) => {
+    if (a.status === 'pending' && b.status !== 'pending') return -1;
+    if (b.status === 'pending' && a.status !== 'pending') return 1;
+    return new Date(b.created_at) - new Date(a.created_at);
+  });
+
+  document.getElementById('list').innerHTML = apologies.map(a => {
+    const m = map[a.member_id] || { name: a.member_id, voice_part: '—' };
+    const typePill = a.apology_type === 'late'
+      ? '<span class="pill amber"><i class="ti ti-clock"></i> Late</span>'
+      : '<span class="pill red"><i class="ti ti-x"></i> Absent</span>';
+    const statusPill = a.status === 'pending' ? '<span class="pill amber">Pending</span>'
+      : a.status === 'approved' ? '<span class="pill green">Approved</span>'
+      : '<span class="pill red">Rejected</span>';
+    const showActions = a.status === 'pending';
+    return `
+      <div class="apology-card">
+        <div class="apology-head">
+          <div style="display:flex;gap:12px;align-items:center">
+            <div class="avatar">${initials(m.name)}</div>
+            <div>
+              <div style="font-weight:700">${m.name}</div>
+              <div style="font-size:12px;color:var(--muted)">${m.voice_part} · ${m.department || '—'} · ${a.member_id}</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center">${typePill} ${statusPill}</div>
+        </div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px">
+          <i class="ti ti-calendar"></i> ${fmtDate(a.date)} (${dayName(a.date)}) · Submitted ${new Date(a.created_at).toLocaleString()}
+          <br><i class="ti ti-clock"></i> Session: 5:00 PM – 7:00 PM
+        </div>
+        <div class="reason-box"><strong>Reason:</strong> ${a.reason}</div>
+        ${a.admin_notes ? `<div style="font-size:12px;color:var(--muted);margin-bottom:8px"><strong>Admin note:</strong> ${a.admin_notes}</div>` : ''}
+        ${showActions ? `
+          <textarea id="note-${a.id}" placeholder="Optional admin note…" rows="2" style="width:100%;margin-bottom:8px"></textarea>
+          <div class="actions-row">
+            <button class="btn success sm" onclick="decide(${a.id},'approved')"><i class="ti ti-check"></i> Approve</button>
+            <button class="btn danger sm" onclick="decide(${a.id},'rejected')"><i class="ti ti-x"></i> Reject</button>
+          </div>` : ''}
+      </div>`;
+  }).join('');
+}
+
+async function decide(id, status) {
+  const note = document.getElementById('note-' + id)?.value || '';
+  const { data: a, error } = await sb.from('apology_requests')
+    .update({ status, admin_notes: note, updated_at: new Date().toISOString() })
+    .eq('id', id).select().single();
+  if (error) return toast(error.message, 'error');
+
+  if (status === 'approved') {
+    const attStatus = a.apology_type === 'late' ? 'Late' : 'Absent';
+    const { data: existing } = await sb.from('attendance').select('id')
+      .eq('member_id', a.member_id).eq('date', a.date).eq('session', a.session).maybeSingle();
+    if (existing) {
+      await sb.from('attendance').update({ status: attStatus, has_apology: true, apology_approved: true }).eq('id', existing.id);
+    } else {
+      await sb.from('attendance').insert({
+        member_id: a.member_id, date: a.date, session: a.session, status: attStatus,
+        has_apology: true, apology_approved: true
+      });
+    }
+  }
+  toast(`Apology ${status}`, 'success');
+  loadApologies();
+}
+loadApologies();
+</script>
+</body></html>

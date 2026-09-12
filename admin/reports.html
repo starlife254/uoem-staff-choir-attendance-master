@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reports — Staff Choir</title>
+<!-- SHARED ADMIN HEAD -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../supabase-config.js"></script>
+<script src="../cache-helper.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<style>
+:root{
+  --primary:#2563eb;--primary-dark:#1d4ed8;--primary-light:#dbeafe;
+  --green:#10b981;--amber:#f59e0b;--red:#ef4444;
+  --bg:#f8fafc;--surface:#fff;--text:#0f172a;--muted:#64748b;
+  --border:#e2e8f0;--sidebar-w:240px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Inter,sans-serif;background:var(--bg);color:var(--text);font-size:14px}
+.sidebar{position:fixed;top:0;left:0;width:var(--sidebar-w);height:100vh;background:#0f172a;color:#cbd5e1;display:flex;flex-direction:column;padding:20px 14px;z-index:100;overflow-y:auto}
+.sidebar .brand{display:flex;align-items:center;gap:10px;color:#fff;font-weight:700;font-size:16px;padding:0 8px 20px;border-bottom:1px solid #1e293b;margin-bottom:16px}
+.sidebar .brand i{font-size:24px;color:#60a5fa}
+.nav-group{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#64748b;padding:12px 10px 6px;font-weight:600}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;color:#cbd5e1;text-decoration:none;font-size:14px;font-weight:500;margin-bottom:2px;position:relative;transition:.15s}
+.nav-item:hover{background:#1e293b;color:#fff}
+.nav-item.active{background:var(--primary);color:#fff}
+.nav-item i{font-size:18px}
+
+.badge{margin-left:auto;background:var(--amber);color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px}
+.badge.today{background:var(--green)}
+.main{margin-left:var(--sidebar-w);padding:24px 28px 80px;min-height:100vh}
+.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px}
+.topbar h1{font-size:22px;font-weight:700}
+.topbar .user{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted)}
+.avatar{width:36px;height:36px;border-radius:50%;background:var(--primary-light);color:var(--primary);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px}
+.btn{padding:10px 16px;border-radius:8px;border:none;background:var(--primary);color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:6px;transition:.15s}
+.btn:hover{background:var(--primary-dark)}
+.btn.ghost{background:#fff;color:var(--text);border:1.5px solid var(--border)}
+.btn.ghost:hover{background:#f1f5f9}
+.btn.danger{background:var(--red)}
+.btn.success{background:var(--green)}
+.btn.amber{background:var(--amber)}
+.btn.sm{padding:6px 10px;font-size:12px}
+.card{background:var(--surface);border-radius:12px;padding:20px;border:1px solid var(--border);box-shadow:0 1px 3px rgba(0,0,0,.03)}
+.grid{display:grid;gap:16px}
+.kpis{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.kpi{background:var(--surface);border-radius:12px;padding:20px;border:1px solid var(--border)}
+.kpi .label{font-size:12px;color:var(--muted);text-transform:uppercase;font-weight:600;letter-spacing:.04em}
+.kpi .value{font-size:28px;font-weight:800;margin-top:6px}
+.pill{padding:3px 9px;border-radius:12px;font-size:11px;font-weight:600;display:inline-block}
+.pill.green{background:#d1fae5;color:#065f46}
+.pill.amber{background:#fef3c7;color:#92400e}
+.pill.red{background:#fee2e2;color:#991b1b}
+.pill.blue{background:var(--primary-light);color:var(--primary-dark)}
+.pill.gray{background:#f1f5f9;color:#475569}
+input,select,textarea{padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:13px;background:#fff;color:var(--text);transition:.15s}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-light)}
+.mobile-nav{display:none}
+@media(max-width:900px){
+  .sidebar{transform:translateX(-100%);transition:.25s}
+  .sidebar.open{transform:translateX(0)}
+  .main{margin-left:0;padding:16px 14px 90px}
+  .mobile-nav{display:flex;position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--border);z-index:99;padding:8px 4px;justify-content:space-around}
+  .mobile-nav a{flex:1;text-align:center;color:var(--muted);text-decoration:none;font-size:10px;font-weight:600;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 0}
+  .mobile-nav a.active{color:var(--primary)}
+  .mobile-nav a i{font-size:20px}
+  .hamburger{display:flex!important}
+  .grid.kpis{grid-template-columns:repeat(2,1fr)}
+}
+.hamburger{display:none;background:none;border:none;font-size:22px;color:var(--text);cursor:pointer}
+.hidden{display:none!important}
+
+/* page-specific */
+.tabs{display:flex;gap:4px;background:#f1f5f9;padding:4px;border-radius:10px;margin-bottom:20px;flex-wrap:wrap}
+.tab{padding:9px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;color:var(--muted)}
+.tab.active{background:#fff;color:var(--primary);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+
+/* attendance % table */
+.pct-table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:16px}
+.pct-table th,.pct-table td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--border)}
+.pct-table th{background:#f8fafc;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:700}
+.pct-table tr:hover td{background:#f8fafc}
+.pct-table .rank{font-weight:800;color:var(--muted);width:40px}
+.pct-bar{height:6px;background:#f1f5f9;border-radius:4px;overflow:hidden;margin-top:4px}
+.pct-bar > div{height:100%;border-radius:4px}
+.voice-section{margin-bottom:28px}
+.voice-section h3{font-size:15px;font-weight:700;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.voice-section h3 .count{font-size:12px;color:var(--muted);font-weight:600}
+.legend{display:flex;gap:16px;font-size:12px;color:var(--muted);margin-bottom:14px;flex-wrap:wrap}
+.legend span{display:flex;align-items:center;gap:6px}
+.legend .dot{width:10px;height:10px;border-radius:50%}
+.summary-bar{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:20px}
+.summary-bar .s{background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center}
+.summary-bar .s .v{font-size:20px;font-weight:800}
+.summary-bar .s .l{font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:600}
+</style>
+</head><body>
+
+<!-- SHARED ADMIN SHELL -->
+<aside class="sidebar" id="sidebar">
+  <div class="brand"><i class="ti ti-music"></i> Staff Choir</div>
+  <div class="nav-group">Main</div>
+  <a class="nav-item" href="index.html"><i class="ti ti-layout-dashboard"></i> Dashboard</a>
+  <a class="nav-item" href="mark-attendance.html"><i class="ti ti-checklist"></i> Mark Attendance <span class="badge today">Today</span></a>
+  <a class="nav-item" href="reports.html"><i class="ti ti-file-analytics"></i> Reports</a>
+  <a class="nav-item" href="analytics.html"><i class="ti ti-chart-line"></i> Analytics</a>
+  <div class="nav-group">Management</div>
+  <a class="nav-item" href="apologies.html"><i class="ti ti-mail"></i> Apologies <span class="badge" id="apologyBadge">0</span></a>
+  <a class="nav-item" href="members.html"><i class="ti ti-users"></i> Members</a>
+  <a class="nav-item" href="manage-members.html"><i class="ti ti-user-cog"></i> Manage Members</a>
+  <a class="nav-item" href="executive.html"><i class="ti ti-crown"></i> Executive</a>
+    <div class="sidebar-foot">
+    <a class="nav-item" href="#" onclick="logout();return false;"><i class="ti ti-logout"></i> Logout</a>
+  </div>
+</aside>
+
+<main class="main">
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:12px">
+      <button class="hamburger" onclick="document.getElementById('sidebar').classList.toggle('open')"><i class="ti ti-menu-2"></i></button>
+      <h1 id="pageTitle">Reports</h1>
+    </div>
+    <div class="user">
+      <div class="avatar" id="userAvatar">A</div>
+      <span id="userEmail">admin</span>
+    </div>
+  </div>
+
+  <!-- PAGE CONTENT -->
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('daily',this)"><i class="ti ti-calendar-event"></i> Daily Report</div>
+    <div class="tab" onclick="switchTab('weekly',this)"><i class="ti ti-calendar-stats"></i> Weekly Summary</div>
+    <div class="tab" onclick="switchTab('pct',this)"><i class="ti ti-percentage"></i> Attendance Ranking%</div>
+  </div>
+
+  <div id="tab-daily" class="tab-pane">
+    <div class="card">
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+        <div><label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Date</label><br>
+          <input type="date" id="dailyDate" style="margin-top:4px"></div>
+        <button class="btn" onclick="genDaily()"><i class="ti ti-file-search"></i> Generate</button>
+        <button class="btn ghost" onclick="exportDailyPDF()"><i class="ti ti-file-type-pdf"></i> PDF</button>
+        <button class="btn ghost" onclick="exportDailyCSV()"><i class="ti ti-file-spreadsheet"></i> CSV</button>
+      </div>
+      <div id="dailyOut" style="margin-top:20px"></div>
+    </div>
+  </div>
+
+  <div id="tab-weekly" class="tab-pane hidden">
+    <div class="card">
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+        <div><label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Week Starting</label><br>
+          <input type="date" id="weekStart" style="margin-top:4px"></div>
+        <button class="btn" onclick="genWeekly()"><i class="ti ti-file-search"></i> Generate</button>
+        <button class="btn ghost" onclick="exportWeeklyPDF()"><i class="ti ti-file-type-pdf"></i> PDF</button>
+      </div>
+      <div id="weeklyOut" style="margin-top:20px"></div>
+    </div>
+  </div>
+
+  <div id="tab-pct" class="tab-pane hidden">
+    <div class="card">
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+        <div><label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">From</label><br>
+          <input type="date" id="pctFrom" style="margin-top:4px"></div>
+        <div><label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">To</label><br>
+          <input type="date" id="pctTo" style="margin-top:4px"></div>
+        <button class="btn" onclick="genAttendancePct()"><i class="ti ti-file-search"></i> Generate</button>
+        <button class="btn ghost" onclick="exportPctPDF()"><i class="ti ti-file-type-pdf"></i> Download PDF</button>
+      </div>
+      <p style="font-size:12px;color:var(--muted);margin-top:10px">
+        <i class="ti ti-info-circle"></i> Percentage = (Present + Late) ÷ Total sessions held in the selected period.
+        Members are ranked highest → lowest within each voice part.
+      </p>
+      <div id="pctOut" style="margin-top:20px"></div>
+    </div>
+  </div>
+</main>
+
+<nav class="mobile-nav">
+  <a href="index.html"><i class="ti ti-layout-dashboard"></i>Home</a>
+  <a href="mark-attendance.html"><i class="ti ti-checklist"></i>Mark</a>
+  <a href="reports.html"><i class="ti ti-file-analytics"></i>Reports</a>
+  <a href="analytics.html"><i class="ti ti-chart-line"></i>Analytics</a>
+</nav>
+
+<script>
+// Shared shell init
+document.querySelectorAll('.nav-item, .mobile-nav a').forEach(a => {
+  if (a.getAttribute('href') === location.pathname.split('/').pop()) a.classList.add('active');
+});
+(async () => {
+  const session = await requireAuth("admin");
+  if (!session) return;
+  document.getElementById('userEmail').textContent = session.user.email;
+  document.getElementById('userAvatar').textContent = initials(session.user.email.split('@')[0]);
+  const { count } = await sb.from('apology_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending');
+  const b = document.getElementById('apologyBadge');
+  if (b) { b.textContent = count || 0; if (!count) b.style.display = 'none'; }
+})();
+
+// Page logic
+let dailyData = null, weeklyData = null, pctData = null;
+
+function switchTab(name, el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.add('hidden'));
+  document.getElementById('tab-' + name).classList.remove('hidden');
+}
+document.getElementById('dailyDate').value = todayISO();
+document.getElementById('weekStart').value = todayISO();
+// Default the % range to current year
+document.getElementById('pctFrom').value = new Date(new Date().getFullYear(), 0, 1).toISOString().slice(0, 10);
+document.getElementById('pctTo').value = todayISO();
+
+async function genDaily() {
+  const date = document.getElementById('dailyDate').value;
+  const { data: att } = await sb.from('attendance').select('*').eq('date', date);
+  const { data: mems } = await sb.from('members').select('*').eq('status', 'active');
+  const allMems = mems || [];
+  const attMap = Object.fromEntries((att || []).map(a => [a.member_id, a]));
+
+  const present = [], late = [], absent = [];
+  allMems.forEach(m => {
+    const a = attMap[m.member_id];
+    if (!a) { absent.push(m); return; }
+    if (a.status === 'Present') present.push(m);
+    else if (a.status === 'Late') late.push(m);
+    else absent.push(m);
+  });
+
+  dailyData = { date, present, late, absent, total: allMems.length };
+  document.getElementById('dailyOut').innerHTML = `
+    <h3 style="margin-bottom:14px">Report for ${fmtDate(date)} (${dayName(date)})</h3>
+    <div class="grid kpis" style="margin-bottom:20px">
+      <div class="kpi"><div class="label">Total Members</div><div class="value">${allMems.length}</div></div>
+      <div class="kpi"><div class="label">Present</div><div class="value" style="color:var(--green)">${present.length}</div></div>
+      <div class="kpi"><div class="label">Late</div><div class="value" style="color:var(--amber)">${late.length}</div></div>
+      <div class="kpi"><div class="label">Absent</div><div class="value" style="color:var(--red)">${absent.length}</div></div>
+    </div>
+    ${late.length ? `<h4 style="margin:16px 0 8px;color:var(--amber)">Late Arrivals (${late.length})</h4><ul style="font-size:13px;padding-left:20px">${late.map(m => `<li>${m.name} — ${m.voice_part}</li>`).join('')}</ul>` : ''}
+    ${absent.length ? `<h4 style="margin:16px 0 8px;color:var(--red)">Absentees (${absent.length})</h4><ul style="font-size:13px;padding-left:20px">${absent.map(m => `<li>${m.name} — ${m.voice_part}</li>`).join('')}</ul>` : ''}
+  `;
+}
+
+function exportDailyPDF() {
+  if (!dailyData) return toast('Generate first', 'error');
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  doc.setFontSize(18); doc.text("Staff Choir — Daily Report", 14, 20);
+  doc.setFontSize(11); doc.text(`Date: ${fmtDate(dailyData.date)} (${dayName(dailyData.date)})`, 14, 30);
+  doc.text(`Total: ${dailyData.total}  |  Present: ${dailyData.present.length}  |  Late: ${dailyData.late.length}  |  Absent: ${dailyData.absent.length}`, 14, 38);
+  let y = 50;
+  doc.setFontSize(13); doc.text("Late Arrivals", 14, y); y += 8; doc.setFontSize(10);
+  dailyData.late.forEach(m => { doc.text(`• ${m.name} (${m.voice_part})`, 18, y); y += 6; });
+  y += 6; doc.setFontSize(13); doc.text("Absentees", 14, y); y += 8; doc.setFontSize(10);
+  dailyData.absent.forEach(m => { doc.text(`• ${m.name} (${m.voice_part})`, 18, y); y += 6; });
+  doc.save(`staff-choir-daily-${dailyData.date}.pdf`);
+}
+
+function exportDailyCSV() {
+  if (!dailyData) return toast('Generate first', 'error');
+  const rows = [['Name','Voice Part','Status']];
+  dailyData.present.forEach(m => rows.push([m.name, m.voice_part, 'Present']));
+  dailyData.late.forEach(m => rows.push([m.name, m.voice_part, 'Late']));
+  dailyData.absent.forEach(m => rows.push([m.name, m.voice_part, 'Absent']));
+  const csv = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `staff-choir-daily-${dailyData.date}.csv`;
+  a.click();
+}
+
+async function genWeekly() {
+  const start = new Date(document.getElementById('weekStart').value);
+  const days = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(start); d.setDate(d.getDate() + i);
+    days.push(d.toISOString().slice(0, 10));
+  }
+  const { data: att } = await sb.from('attendance').select('*').in('date', days);
+  const { data: mems } = await sb.from('members').select('*').eq('status', 'active');
+  const total = (mems || []).length;
+
+  const byDay = days.map(d => {
+    const dayAtt = (att || []).filter(a => a.date === d);
+    return {
+      date: d,
+      present: dayAtt.filter(a => a.status === 'Present').length,
+      late: dayAtt.filter(a => a.status === 'Late').length,
+      absent: dayAtt.filter(a => a.status === 'Absent').length,
+      marked: dayAtt.length
+    };
+  });
+
+  const totalPresent = byDay.reduce((s, d) => s + d.present, 0);
+  const totalLate = byDay.reduce((s, d) => s + d.late, 0);
+  const totalAbsent = byDay.reduce((s, d) => s + d.absent, 0);
+
+  const memberCount = {};
+  (att || []).forEach(a => {
+    if (a.status === 'Present') memberCount[a.member_id] = (memberCount[a.member_id] || 0) + 1;
+  });
+  const sorted = Object.entries(memberCount).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const topIds = sorted.map(s => s[0]);
+  const { data: topMems } = await sb.from('members').select('member_id,name,voice_part').in('member_id', topIds.length ? topIds : ['_']);
+  const topMap = Object.fromEntries((topMems || []).map(m => [m.member_id, m]));
+
+  const activeDays = byDay.filter(d => d.marked > 0);
+  const best = activeDays.slice().sort((a, b) => (b.present + b.late) - (a.present + a.late))[0];
+  const worst = activeDays.slice().sort((a, b) => (a.present + a.late) - (b.present + b.late))[0];
+
+  weeklyData = { start: days[0], end: days[6], total, byDay, totalPresent, totalLate, totalAbsent,
+    best, worst, top: sorted.map(s => ({ ...topMap[s[0]], count: s[1] })) };
+
+  document.getElementById('weeklyOut').innerHTML = `
+    <h3 style="margin-bottom:14px">Weekly Summary — ${fmtDate(days[0])} to ${fmtDate(days[6])}</h3>
+    <div class="grid kpis" style="margin-bottom:20px">
+      <div class="kpi"><div class="label">Total Present</div><div class="value" style="color:var(--green)">${totalPresent}</div></div>
+      <div class="kpi"><div class="label">Total Late</div><div class="value" style="color:var(--amber)">${totalLate}</div></div>
+      <div class="kpi"><div class="label">Total Absent</div><div class="value" style="color:var(--red)">${totalAbsent}</div></div>
+      <div class="kpi"><div class="label">Best Day</div><div class="value" style="font-size:16px">${best ? fmtDate(best.date) : '—'}</div></div>
+    </div>
+    <h4 style="margin-bottom:10px">Daily Breakdown</h4>
+    ${byDay.map(d => {
+      const pct = total ? Math.round((d.present + d.late) / total * 100) : 0;
+      return `<div style="margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px">
+          <span><strong>${dayName(d.date)}</strong> — ${fmtDate(d.date)}</span>
+          <span>${d.present}✓ ${d.late}⏰ ${d.absent}✗ (${pct}%)</span>
+        </div>
+        <div style="height:8px;background:#f1f5f9;border-radius:6px;overflow:hidden">
+          <div style="height:100%;width:${pct}%;background:var(--primary)"></div>
+        </div>
+      </div>`;
+    }).join('')}
+    ${weeklyData.top.length ? `<h4 style="margin:18px 0 8px">Top Performers</h4>
+      <ol style="font-size:13px;padding-left:20px">${weeklyData.top.map(m => `<li>${m.name} — ${m.count} sessions</li>`).join('')}</ol>` : ''}
+  `;
+}
+
+function exportWeeklyPDF() {
+  if (!weeklyData) return toast('Generate first', 'error');
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  doc.setFontSize(18); doc.text("Staff Choir — Weekly Summary", 14, 20);
+  doc.setFontSize(11);
+  doc.text(`Week: ${fmtDate(weeklyData.start)} to ${fmtDate(weeklyData.end)}`, 14, 30);
+  doc.text(`Total: Present ${weeklyData.totalPresent}  Late ${weeklyData.totalLate}  Absent ${weeklyData.totalAbsent}`, 14, 38);
+  let y = 50;
+  weeklyData.byDay.forEach(d => {
+    doc.text(`${dayName(d.date)} ${fmtDate(d.date)}: ${d.present}✓ ${d.late}⏰ ${d.absent}✗`, 14, y);
+    y += 7;
+  });
+  doc.save(`staff-choir-weekly-${weeklyData.start}.pdf`);
+}
+
+/* ============================================================
+   ATTENDANCE PERCENTAGE TAB
+   ============================================================ */
+
+async function genAttendancePct() {
+  const from = document.getElementById('pctFrom').value;
+  const to   = document.getElementById('pctTo').value;
+  if (!from || !to) return toast('Pick both dates', 'error');
+  if (from > to)    return toast('"From" must be before "To"', 'error');
+
+  // Fetch all attendance in range + active members
+  const { data: att, error: aErr } = await sb.from('attendance')
+    .select('*').gte('date', from).lte('date', to);
+  if (aErr) return toast(aErr.message, 'error');
+
+  const { data: mems, error: mErr } = await sb.from('members')
+    .select('*').eq('status', 'active');
+  if (mErr) return toast(mErr.message, 'error');
+
+  // Count the total distinct sessions (dates) that have ANY attendance record
+  const sessionDates = [...new Set((att || []).map(a => a.date))];
+  const totalSessions = sessionDates.length;
+
+  // Build per-member stats
+  const stats = {};
+  (mems || []).forEach(m => {
+    stats[m.member_id] = { member: m, present: 0, late: 0, absent: 0, total: 0 };
+  });
+  (att || []).forEach(a => {
+    if (!stats[a.member_id]) return; // skip inactive / removed members
+    const s = stats[a.member_id];
+    if (a.status === 'Present') s.present++;
+    else if (a.status === 'Late') s.late++;
+    else if (a.status === 'Absent') s.absent++;
+    s.total++;
+  });
+
+  // Compute percentage = (present + late) / totalSessions
+  const list = Object.values(stats).map(s => {
+    const attended = s.present + s.late;
+    const pct = totalSessions ? Math.round((attended / totalSessions) * 1000) / 10 : 0;
+    return { ...s, attended, pct };
+  });
+
+  // Group by voice part
+  const voiceParts = ['Soprano', 'Alto', 'Tenor', 'Bass'];
+  const grouped = {};
+  voiceParts.forEach(v => grouped[v] = []);
+  list.forEach(s => {
+    const v = s.member.voice_part || 'Other';
+    if (!grouped[v]) grouped[v] = [];
+    grouped[v].push(s);
+  });
+  // Sort each group highest → lowest % (then by name)
+  Object.values(grouped).forEach(arr => arr.sort((a, b) =>
+    b.pct - a.pct || a.member.name.localeCompare(b.member.name)
+  ));
+
+  // Overall KPIs
+  const overallAvg = list.length
+    ? Math.round(list.reduce((s, x) => s + x.pct, 0) / list.length * 10) / 10
+    : 0;
+  const perfect = list.filter(x => x.pct >= 100).length;
+  const below50 = list.filter(x => x.pct < 50).length;
+
+  pctData = {
+    from, to, totalSessions, voiceParts, grouped,
+    overallAvg, perfect, below50, totalMembers: list.length,
+    sessionDates
+  };
+
+  renderPct();
+}
+
+function pctColor(pct) {
+  if (pct >= 85) return 'var(--green)';
+  if (pct >= 70) return 'var(--primary)';
+  if (pct >= 50) return 'var(--amber)';
+  return 'var(--red)';
+}
+
+function renderPct() {
+  const d = pctData;
+  if (!d) return;
+
+  const html = `
+    <h3 style="margin-bottom:6px">Attendance % — ${fmtDate(d.from)} to ${fmtDate(d.to)}</h3>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:16px">
+      Based on <strong>${d.totalSessions}</strong> recorded session${d.totalSessions === 1 ? '' : 's'} in this period.
+    </p>
+
+    <div class="summary-bar">
+      <div class="s"><div class="v">${d.totalSessions}</div><div class="l">Sessions</div></div>
+      <div class="s"><div class="v">${d.totalMembers}</div><div class="l">Members</div></div>
+      <div class="s"><div class="v" style="color:var(--primary)">${d.overallAvg}%</div><div class="l">Avg Attendance</div></div>
+      <div class="s"><div class="v" style="color:var(--green)">${d.perfect}</div><div class="l">100% Perfect</div></div>
+      <div class="s"><div class="v" style="color:var(--red)">${d.below50}</div><div class="l">Below 50%</div></div>
+    </div>
+
+    <div class="legend">
+      <span><span class="dot" style="background:var(--green)"></span> 85%+ Excellent</span>
+      <span><span class="dot" style="background:var(--primary)"></span> 70–84% Good</span>
+      <span><span class="dot" style="background:var(--amber)"></span> 50–69% Fair</span>
+      <span><span class="dot" style="background:var(--red)"></span> &lt;50% Needs improvement</span>
+    </div>
+
+    ${d.voiceParts.filter(v => (d.grouped[v] || []).length).map(v => {
+      const arr = d.grouped[v];
+      return `<div class="voice-section">
+        <h3>${v} <span class="count">${arr.length} member${arr.length === 1 ? '' : 's'}</span></h3>
+        <table class="pct-table">
+          <thead>
+            <tr>
+              <th class="rank">#</th>
+              <th>Name</th>
+              <th>Department</th>
+              <th style="text-align:center">Present</th>
+              <th style="text-align:center">Late</th>
+              <th style="text-align:center">Absent</th>
+              <th style="width:180px">Attendance %</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${arr.map((s, i) => `
+              <tr>
+                <td class="rank">${i + 1}</td>
+                <td><strong>${s.member.name}</strong><br><span style="font-size:11px;color:var(--muted)">${s.member.member_id}</span></td>
+                <td style="font-size:12px;color:var(--muted)">${s.member.department || '—'}</td>
+                <td style="text-align:center;color:var(--green);font-weight:600">${s.present}</td>
+                <td style="text-align:center;color:var(--amber);font-weight:600">${s.late}</td>
+                <td style="text-align:center;color:var(--red);font-weight:600">${s.absent}</td>
+                <td>
+                  <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700">
+                    <span>${s.pct}%</span>
+                    <span style="color:var(--muted);font-weight:500">${s.attended}/${d.totalSessions}</span>
+                  </div>
+                  <div class="pct-bar"><div style="width:${Math.min(s.pct, 100)}%;background:${pctColor(s.pct)}"></div></div>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>`;
+    }).join('')}
+  `;
+  document.getElementById('pctOut').innerHTML = html;
+}
+
+function exportPctPDF() {
+  if (!pctData) return toast('Generate first', 'error');
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const pageW = doc.internal.pageSize.getWidth();
+  const d = pctData;
+
+  // ===== Header =====
+  doc.setFillColor(37, 99, 235);
+  doc.rect(0, 0, pageW, 24, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(16);
+  doc.setFont(undefined, 'bold');
+  doc.text('Staff Choir — Attendance Report', 14, 15);
+
+  doc.setTextColor(15, 23, 42);
+  doc.setFont(undefined, 'normal');
+  doc.setFontSize(10);
+  doc.text(`Period: ${fmtDate(d.from)}  →  ${fmtDate(d.to)}`, 14, 32);
+  doc.text(`Sessions held: ${d.totalSessions}   |   Members: ${d.totalMembers}   |   Overall average: ${d.overallAvg}%`, 14, 38);
+
+  // ===== KPI strip =====
+  const kpiY = 46;
+  const kpiW = (pageW - 28 - 12) / 4;
+  const kpis = [
+    { label: 'Sessions', value: String(d.totalSessions), color: [37, 99, 235] },
+    { label: 'Avg Attendance', value: `${d.overallAvg}%`, color: [16, 185, 129] },
+    { label: 'Perfect (100%)', value: String(d.perfect), color: [16, 185, 129] },
+    { label: 'Below 50%', value: String(d.below50), color: [239, 68, 68] },
+  ];
+  kpis.forEach((k, i) => {
+    const x = 14 + i * (kpiW + 4);
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(226, 232, 240);
+    doc.roundedRect(x, kpiY, kpiW, 18, 2, 2, 'FD');
+    doc.setTextColor(100, 116, 139);
+    doc.setFontSize(7.5);
+    doc.text(k.label.toUpperCase(), x + 3, kpiY + 6);
+    doc.setTextColor(...k.color);
+    doc.setFontSize(13);
+    doc.setFont(undefined, 'bold');
+    doc.text(k.value, x + 3, kpiY + 14);
+    doc.setFont(undefined, 'normal');
+  });
+
+  let y = kpiY + 26;
+
+  // ===== One table per voice part =====
+  const voiceParts = d.voiceParts.filter(v => (d.grouped[v] || []).length);
+
+  voiceParts.forEach((v, idx) => {
+    // Section header
+    if (y > 240) { doc.addPage(); y = 20; }
+    doc.setFillColor(37, 99, 235);
+    doc.rect(14, y, pageW - 28, 8, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(11);
+    doc.setFont(undefined, 'bold');
+    doc.text(`${v.toUpperCase()}  —  ${d.grouped[v].length} member${d.grouped[v].length === 1 ? '' : 's'}`, 17, y + 5.5);
+    doc.setFont(undefined, 'normal');
+    doc.setTextColor(15, 23, 42);
+    y += 10;
+
+    const rows = d.grouped[v].map((s, i) => [
+      String(i + 1),
+      s.member.name,
+      s.member.member_id,
+      s.member.department || '—',
+      String(s.present),
+      String(s.late),
+      String(s.absent),
+      `${s.pct}%`
+    ]);
+
+    doc.autoTable({
+      startY: y,
+      head: [['#', 'Name', 'ID', 'Department', 'Present', 'Late', 'Absent', 'Attendance %']],
+      body: rows,
+      theme: 'grid',
+      styles: { fontSize: 8.5, cellPadding: 2, textColor: [15, 23, 42] },
+      headStyles: {
+        fillColor: [241, 245, 249],
+        textColor: [100, 116, 139],
+        fontStyle: 'bold',
+        fontSize: 8,
+        halign: 'center',
+      },
+      columnStyles: {
+        0: { halign: 'center', cellWidth: 10, textColor: [100, 116, 139], fontStyle: 'bold' },
+        1: { cellWidth: 45, fontStyle: 'bold' },
+        2: { cellWidth: 22, textColor: [100, 116, 139], fontSize: 8 },
+        3: { cellWidth: 35, textColor: [100, 116, 139] },
+        4: { halign: 'center', cellWidth: 18, textColor: [16, 185, 129], fontStyle: 'bold' },
+        5: { halign: 'center', cellWidth: 15, textColor: [245, 158, 11], fontStyle: 'bold' },
+        6: { halign: 'center', cellWidth: 15, textColor: [239, 68, 68], fontStyle: 'bold' },
+        7: { halign: 'right', cellWidth: 22, fontStyle: 'bold' },
+      },
+      alternateRowStyles: { fillColor: [250, 251, 252] },
+      margin: { left: 14, right: 14 },
+      didParseCell: (data) => {
+        // Colour the % cell based on value
+        if (data.section === 'body' && data.column.index === 7) {
+          const pct = parseFloat(String(data.cell.raw).replace('%', ''));
+          if (pct >= 85) data.cell.styles.textColor = [16, 185, 129];
+          else if (pct >= 70) data.cell.styles.textColor = [37, 99, 235];
+          else if (pct >= 50) data.cell.styles.textColor = [245, 158, 11];
+          else data.cell.styles.textColor = [239, 68, 68];
+        }
+      },
+    });
+
+    y = doc.lastAutoTable.finalY + 12;
+  });
+
+  // ===== Footer note on last page =====
+  const pageCount = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8);
+    doc.setTextColor(148, 163, 184);
+    doc.text(
+      `Generated ${new Date().toLocaleString()}   ·   Page ${i} of ${pageCount}`,
+      14, doc.internal.pageSize.getHeight() - 8
+    );
+  }
+
+  doc.save(`staff-choir-attendance-pct-${d.from}_to_${d.to}.pdf`);
+}
+</script>
+</body></html>

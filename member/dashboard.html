@@ -1,0 +1,1741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>My Dashboard — Staff Choir</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../supabase-config.js"></script>
+<script src="../cache-helper.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+:root{
+  --brand:#4f46e5;
+  --brand-dark:#4338ca;
+  --brand-light:#eef2ff;
+  --green:#10b981;
+  --green-light:#d1fae5;
+  --amber:#f59e0b;
+  --amber-light:#fef3c7;
+  --red:#ef4444;
+  --red-light:#fee2e2;
+  --bg:#f9fafb;
+  --surface:#ffffff;
+  --text:#111827;
+  --text-soft:#374151;
+  --muted:#6b7280;
+  --border:#e5e7eb;
+  --border-soft:#f3f4f6;
+  --shadow-sm:0 1px 2px rgba(0,0,0,0.04);
+  --shadow:0 1px 3px rgba(0,0,0,0.06),0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md:0 4px 6px -1px rgba(0,0,0,0.05),0 2px 4px -2px rgba(0,0,0,0.04);
+  --shadow-lg:0 10px 15px -3px rgba(0,0,0,0.06),0 4px 6px -4px rgba(0,0,0,0.04);
+  --radius:14px;
+  --sidebar-w:250px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  font-size:14px;
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+}
+
+/* ---------- Sidebar (desktop) ---------- */
+.sidebar{
+  position:fixed;
+  top:0; left:0; bottom:0;
+  width:var(--sidebar-w);
+  background:var(--surface);
+  border-right:1px solid var(--border);
+  padding:20px 14px;
+  display:flex;
+  flex-direction:column;
+  z-index:60;
+  transition:transform .25s ease;
+}
+.brand{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:6px 10px 22px;
+  border-bottom:1px solid var(--border-soft);
+  margin-bottom:16px;
+}
+.brand-logo{
+  width:36px;height:36px;
+  border-radius:10px;
+  background:linear-gradient(135deg,#6366f1,#4f46e5);
+  display:flex;align-items:center;justify-content:center;
+  color:#fff;
+  font-weight:700;
+  font-size:17px;
+  box-shadow:0 4px 10px rgba(79,70,229,.25);
+}
+.brand-text{display:flex;flex-direction:column;line-height:1.2}
+.brand-text strong{font-size:14px;font-weight:700;color:var(--text)}
+.brand-text span{font-size:11px;color:var(--muted);font-weight:500}
+
+.nav-section{
+  font-size:11px;
+  font-weight:600;
+  text-transform:uppercase;
+  letter-spacing:.06em;
+  color:var(--muted);
+  padding:12px 10px 6px;
+}
+.nav-item{
+  display:flex;
+  align-items:center;
+  gap:11px;
+  padding:9px 11px;
+  border-radius:9px;
+  color:var(--text-soft);
+  font-size:13.5px;
+  font-weight:500;
+  text-decoration:none;
+  cursor:pointer;
+  transition:.12s;
+  margin-bottom:1px;
+  border:none;
+  background:none;
+  width:100%;
+  font-family:inherit;
+  text-align:left;
+}
+.nav-item i{font-size:18px;color:var(--muted);transition:.12s}
+.nav-item:hover{background:var(--border-soft);color:var(--text)}
+.nav-item:hover i{color:var(--text-soft)}
+.nav-item.active{background:var(--brand-light);color:var(--brand-dark);font-weight:600}
+.nav-item.active i{color:var(--brand)}
+.sidebar-foot{margin-top:auto;padding-top:14px;border-top:1px solid var(--border-soft)}
+.sidebar-foot .nav-item{color:var(--red)}
+.sidebar-foot .nav-item i{color:var(--red)}
+.sidebar-foot .nav-item:hover{background:var(--red-light)}
+
+/* ---------- Main layout ---------- */
+.main{
+  margin-left:var(--sidebar-w);
+  min-height:100vh;
+  padding-bottom:40px;
+}
+.hidden{display:none!important}
+.topbar{
+  background:var(--surface);
+  border-bottom:1px solid var(--border);
+  padding:14px 28px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  position:sticky;
+  top:0;
+  z-index:40;
+  backdrop-filter:blur(8px);
+}
+.topbar-left{display:flex;align-items:center;gap:12px;min-width:0}
+.topbar h1{
+  font-size:17px;
+  font-weight:700;
+  color:var(--text);
+  letter-spacing:-.01em;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.topbar h1 span{font-weight:400;color:var(--muted);font-size:14px;margin-left:6px}
+.topbar-right{display:flex;align-items:center;gap:10px;position:relative}
+
+.icon-btn{
+  width:38px;height:38px;
+  border-radius:10px;
+  background:transparent;
+  border:1px solid var(--border);
+  cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  color:var(--muted);
+  transition:.12s;
+  position:relative;
+}
+.icon-btn:hover{background:var(--border-soft);color:var(--text)}
+.icon-btn i{font-size:18px}
+
+.user-chip{
+  display:flex;
+  align-items:center;
+  gap:9px;
+  padding:5px 10px 5px 5px;
+  border-radius:10px;
+  cursor:pointer;
+  transition:.12s;
+  border:1px solid transparent;
+}
+.user-chip:hover{background:var(--border-soft);border-color:var(--border)}
+.avatar{
+  width:32px;height:32px;
+  border-radius:9px;
+  background:linear-gradient(135deg,#818cf8,#4f46e5);
+  color:#fff;
+  font-weight:600;
+  font-size:12px;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;
+}
+.user-chip-meta{display:flex;flex-direction:column;line-height:1.2;min-width:0}
+.user-chip-meta strong{font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px}
+.user-chip-meta span{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px}
+
+/* User dropdown */
+.user-menu{
+  position:absolute;
+  top:calc(100% + 8px);
+  right:0;
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:12px;
+  box-shadow:var(--shadow-lg);
+  min-width:220px;
+  padding:6px;
+  opacity:0;
+  visibility:hidden;
+  transform:translateY(-4px);
+  transition:.15s;
+  z-index:100;
+}
+.user-menu.open{opacity:1;visibility:visible;transform:translateY(0)}
+.user-menu-header{padding:10px 12px 12px;border-bottom:1px solid var(--border-soft);margin-bottom:4px}
+.user-menu-header strong{display:block;font-size:13px;color:var(--text);font-weight:600}
+.user-menu-header span{font-size:11.5px;color:var(--muted);word-break:break-all}
+.user-menu a{
+  display:flex;align-items:center;gap:10px;
+  padding:8px 10px;
+  border-radius:8px;
+  font-size:13px;
+  color:var(--text-soft);
+  text-decoration:none;
+  cursor:pointer;
+  transition:.12s;
+}
+.user-menu a:hover{background:var(--border-soft);color:var(--text)}
+.user-menu a i{font-size:17px;color:var(--muted)}
+.user-menu a.danger{color:var(--red)}
+.user-menu a.danger i{color:var(--red)}
+.user-menu a.danger:hover{background:var(--red-light)}
+.user-menu hr{border:none;border-top:1px solid var(--border-soft);margin:4px 0}
+
+.hamburger{
+  display:none;
+  width:38px;height:38px;
+  border-radius:10px;
+  background:transparent;
+  border:1px solid var(--border);
+  cursor:pointer;
+  align-items:center;justify-content:center;
+  color:var(--text);
+}
+.hamburger i{font-size:20px}
+
+/* Page content */
+.page{padding:24px 28px;max-width:1200px;margin:0 auto}
+.page-head{margin-bottom:20px}
+.page-head h2{font-size:22px;font-weight:700;letter-spacing:-.02em;color:var(--text)}
+.page-head p{font-size:13.5px;color:var(--muted);margin-top:3px}
+
+/* Grid */
+.grid{display:grid;gap:16px}
+.grid-4{grid-template-columns:repeat(4,1fr)}
+.grid-3{grid-template-columns:repeat(3,1fr)}
+.grid-2{grid-template-columns:repeat(2,1fr)}
+.grid-hero{grid-template-columns:2fr 1fr}
+
+/* Card */
+.card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:20px;
+  box-shadow:var(--shadow-sm);
+}
+.card-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:16px;
+}
+.card-head h3{font-size:15px;font-weight:700;color:var(--text);letter-spacing:-.01em}
+.card-head p{font-size:12.5px;color:var(--muted);margin-top:2px}
+.card-head .card-action{
+  font-size:12.5px;
+  font-weight:600;
+  color:var(--brand);
+  text-decoration:none;
+  cursor:pointer;
+  display:flex;align-items:center;gap:4px;
+}
+.card-head .card-action:hover{color:var(--brand-dark)}
+
+/* KPI card */
+.kpi{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:18px;
+  box-shadow:var(--shadow-sm);
+  position:relative;
+  overflow:hidden;
+  transition:.15s;
+}
+.kpi:hover{box-shadow:var(--shadow-md);border-color:#d1d5db}
+.kpi-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.kpi-icon{
+  width:38px;height:38px;
+  border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:19px;
+}
+.kpi-icon.green{background:var(--green-light);color:#047857}
+.kpi-icon.amber{background:var(--amber-light);color:#b45309}
+.kpi-icon.red{background:var(--red-light);color:#b91c1c}
+.kpi-icon.brand{background:var(--brand-light);color:var(--brand-dark)}
+.kpi-label{
+  font-size:12px;
+  font-weight:600;
+  color:var(--muted);
+  letter-spacing:.01em;
+}
+.kpi-value{
+  font-size:26px;
+  font-weight:800;
+  color:var(--text);
+  letter-spacing:-.03em;
+  line-height:1;
+  margin-top:2px;
+}
+.kpi-foot{
+  font-size:11.5px;
+  color:var(--muted);
+  margin-top:8px;
+  display:flex;align-items:center;gap:4px;
+}
+
+/* Next session card */
+.next-session{
+  background:linear-gradient(135deg,#4f46e5 0%,#6366f1 100%);
+  color:#fff;
+  border-radius:var(--radius);
+  padding:22px;
+  position:relative;
+  overflow:hidden;
+  box-shadow:0 10px 25px -5px rgba(79,70,229,.35);
+}
+.next-session::after{
+  content:"";
+  position:absolute;
+  right:-40px;bottom:-60px;
+  width:180px;height:180px;
+  border-radius:50%;
+  background:rgba(255,255,255,.08);
+}
+.next-session::before{
+  content:"";
+  position:absolute;
+  right:30px;top:-50px;
+  width:120px;height:120px;
+  border-radius:50%;
+  background:rgba(255,255,255,.06);
+}
+.next-session .ns-label{
+  font-size:11.5px;
+  font-weight:600;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+  opacity:.8;
+  display:flex;align-items:center;gap:6px;
+  position:relative;
+  z-index:2;
+}
+.next-session .ns-title{
+  font-size:20px;
+  font-weight:700;
+  margin-top:10px;
+  letter-spacing:-.02em;
+  position:relative;
+  z-index:2;
+}
+.next-session .ns-meta{
+  font-size:13px;
+  opacity:.9;
+  margin-top:6px;
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  position:relative;
+  z-index:2;
+}
+.next-session .ns-meta span{display:flex;align-items:center;gap:5px}
+.next-session .ns-badge{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:5px 11px;
+  background:rgba(255,255,255,.15);
+  border:1px solid rgba(255,255,255,.2);
+  border-radius:20px;
+  font-size:11.5px;
+  font-weight:600;
+  margin-top:14px;
+  position:relative;
+  z-index:2;
+  backdrop-filter:blur(4px);
+}
+
+/* Streak */
+.streak{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:20px;
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+  box-shadow:var(--shadow-sm);
+}
+.streak-top{display:flex;align-items:center;justify-content:space-between}
+.streak-emoji{font-size:28px;line-height:1}
+.streak-label{
+  font-size:11.5px;
+  font-weight:600;
+  color:var(--muted);
+  text-transform:uppercase;
+  letter-spacing:.06em;
+}
+.streak-value{
+  font-size:36px;
+  font-weight:800;
+  color:var(--text);
+  letter-spacing:-.04em;
+  line-height:1;
+  margin-top:12px;
+}
+.streak-value span{font-size:14px;font-weight:600;color:var(--muted);margin-left:6px}
+.streak-dots{
+  display:flex;
+  gap:5px;
+  margin-top:14px;
+}
+.streak-dot{
+  flex:1;
+  height:8px;
+  border-radius:6px;
+  background:var(--border-soft);
+}
+.streak-dot.on{background:var(--green)}
+.streak-dot.late{background:var(--amber)}
+.streak-dot.miss{background:var(--red)}
+
+/* Chart */
+.chart-wrap{
+  position:relative;
+  width:100%;
+  height:260px;
+}
+.chart-wrap canvas{display:block;width:100%!important;height:100%!important}
+
+/* Activity feed */
+.activity-list{display:flex;flex-direction:column;gap:2px}
+.activity-item{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:11px 4px;
+  border-bottom:1px solid var(--border-soft);
+}
+.activity-item:last-child{border-bottom:none}
+.activity-dot{
+  width:34px;height:34px;
+  border-radius:9px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:16px;
+  flex-shrink:0;
+}
+.activity-dot.green{background:var(--green-light);color:#047857}
+.activity-dot.amber{background:var(--amber-light);color:#b45309}
+.activity-dot.red{background:var(--red-light);color:#b91c1c}
+.activity-body{flex:1;min-width:0}
+.activity-body strong{display:block;font-size:13.5px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.activity-body span{font-size:12px;color:var(--muted)}
+.activity-time{font-size:11.5px;color:var(--muted);white-space:nowrap}
+
+/* Profile */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.field label{
+  font-size:12.5px;
+  font-weight:600;
+  color:var(--text-soft);
+  margin-bottom:6px;
+  display:block;
+}
+.field input,.field select,.field textarea{
+  width:100%;
+  padding:10px 12px;
+  border:1px solid var(--border);
+  border-radius:9px;
+  font-family:inherit;
+  font-size:13.5px;
+  background:var(--surface);
+  color:var(--text);
+  transition:.15s;
+}
+.field input:focus,.field select:focus,.field textarea:focus{
+  outline:none;
+  border-color:var(--brand);
+  box-shadow:0 0 0 3px rgba(79,70,229,.12);
+}
+.field input[readonly]{background:var(--bg);color:var(--muted);cursor:not-allowed}
+
+/* Buttons */
+.btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+  padding:10px 16px;
+  border-radius:9px;
+  font-family:inherit;
+  font-size:13.5px;
+  font-weight:600;
+  cursor:pointer;
+  transition:.12s;
+  border:1px solid transparent;
+  text-decoration:none;
+  white-space:nowrap;
+}
+.btn-primary{background:var(--brand);color:#fff;box-shadow:0 1px 2px rgba(79,70,229,.3)}
+.btn-primary:hover{background:var(--brand-dark)}
+.btn-secondary{background:var(--surface);color:var(--text-soft);border-color:var(--border)}
+.btn-secondary:hover{background:var(--border-soft);border-color:#d1d5db}
+.btn-danger{background:var(--red);color:#fff}
+.btn-danger:hover{background:#dc2626}
+.btn:disabled{opacity:.55;cursor:not-allowed}
+.btn i{font-size:17px}
+.btn-sm{padding:7px 12px;font-size:12.5px}
+
+/* Pills */
+.pill{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  padding:3px 9px;
+  border-radius:20px;
+  font-size:11.5px;
+  font-weight:600;
+  letter-spacing:.01em;
+}
+.pill.green{background:var(--green-light);color:#047857}
+.pill.amber{background:var(--amber-light);color:#b45309}
+.pill.red{background:var(--red-light);color:#b91c1c}
+.pill.brand{background:var(--brand-light);color:var(--brand-dark)}
+.pill.gray{background:var(--border-soft);color:var(--text-soft)}
+.pill i{font-size:12px}
+
+/* Table */
+.table-wrap{overflow-x:auto;margin:0 -20px;padding:0 20px}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th{
+  text-align:left;
+  font-size:11.5px;
+  font-weight:600;
+  color:var(--muted);
+  text-transform:uppercase;
+  letter-spacing:.04em;
+  padding:10px 12px;
+  border-bottom:1px solid var(--border);
+  background:var(--surface);
+}
+td{
+  padding:12px;
+  border-bottom:1px solid var(--border-soft);
+  color:var(--text-soft);
+}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:var(--bg)}
+td strong{color:var(--text);font-weight:600}
+
+/* Alert */
+.alert{
+  display:flex;
+  gap:10px;
+  padding:12px 14px;
+  border-radius:10px;
+  font-size:13px;
+  margin-bottom:16px;
+  line-height:1.5;
+  align-items:flex-start;
+}
+.alert i{font-size:17px;flex-shrink:0;margin-top:1px}
+.alert-info{background:var(--brand-light);color:var(--brand-dark);border:1px solid #c7d2fe}
+.alert-warn{background:var(--amber-light);color:#92400e;border:1px solid #fde68a}
+
+/* Visibility */
+.hidden{display:none!important}
+/* Empty state */
+.empty{
+  text-align:center;
+  padding:40px 20px;
+  color:var(--muted);
+}
+.empty-icon{
+  width:56px;height:56px;
+  border-radius:14px;
+  background:var(--border-soft);
+  display:flex;align-items:center;justify-content:center;
+  margin:0 auto 14px;
+  font-size:26px;
+  color:#9ca3af;
+}
+.empty h4{font-size:14px;font-weight:600;color:var(--text-soft);margin-bottom:4px}
+.empty p{font-size:13px;color:var(--muted)}
+
+/* Committee */
+.committee-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
+.committee-card{
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:16px;
+  display:flex;
+  gap:12px;
+  align-items:center;
+  transition:.15s;
+  background:var(--surface);
+}
+.committee-card:hover{border-color:#c7d2fe;box-shadow:var(--shadow-md)}
+.committee-avatar{
+  width:44px;height:44px;
+  border-radius:11px;
+  background:linear-gradient(135deg,#a5b4fc,#6366f1);
+  color:#fff;
+  font-weight:700;
+  font-size:15px;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;
+}
+.committee-body{min-width:0}
+.committee-body strong{display:block;font-size:13.5px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.committee-body .role{font-size:11.5px;font-weight:600;color:var(--brand);margin-top:2px;text-transform:uppercase;letter-spacing:.03em}
+.committee-body .year{font-size:11.5px;color:var(--muted);margin-top:2px}
+
+/* Bottom nav (mobile) */
+.bottom-nav{
+  display:none;
+  position:fixed;
+  bottom:0;left:0;right:0;
+  background:var(--surface);
+  border-top:1px solid var(--border);
+  padding:6px 0 calc(6px + env(safe-area-inset-bottom));
+  z-index:55;
+  box-shadow:0 -4px 12px rgba(0,0,0,.03);
+}
+.bottom-nav-inner{display:flex;justify-content:space-around;align-items:center}
+.bottom-nav a{
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:2px;
+  padding:6px 0;
+  color:var(--muted);
+  text-decoration:none;
+  font-size:10.5px;
+  font-weight:600;
+  transition:.12s;
+  cursor:pointer;
+}
+.bottom-nav a i{font-size:21px}
+.bottom-nav a.active{color:var(--brand)}
+
+/* Toast */
+#toastWrap{
+  position:fixed;
+  top:20px;right:20px;
+  z-index:9999;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  max-width:calc(100vw - 40px);
+  pointer-events:none;
+}
+.toast-item{
+  padding:12px 16px;
+  background:var(--text);
+  color:#fff;
+  border-radius:10px;
+  font-size:13px;
+  font-weight:500;
+  box-shadow:var(--shadow-lg);
+  animation:slideIn .25s ease;
+  display:flex;
+  align-items:center;
+  gap:9px;
+  pointer-events:auto;
+  max-width:340px;
+}
+.toast-item i{font-size:17px;flex-shrink:0}
+.toast-item.success{background:#065f46}
+.toast-item.error{background:#991b1b}
+@keyframes slideIn{
+  from{transform:translateX(20px);opacity:0}
+  to{transform:translateX(0);opacity:1}
+}
+
+/* Overlay (mobile menu) */
+.overlay{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.4);
+  z-index:59;
+  opacity:0;
+  transition:.2s;
+}
+.overlay.show{display:block;opacity:1}
+
+/* Responsive */
+@media(max-width:900px){
+  .sidebar{transform:translateX(-100%)}
+  .sidebar.open{transform:translateX(0);box-shadow:0 0 40px rgba(0,0,0,.15)}
+  .main{margin-left:0;padding-bottom:80px}
+  .hamburger{display:flex}
+  .topbar{padding:12px 16px}
+  .topbar h1{font-size:15px}
+  .topbar h1 span{display:none}
+  .user-chip-meta{display:none}
+  .page{padding:16px}
+  .grid-4{grid-template-columns:repeat(2,1fr)}
+  .grid-3{grid-template-columns:1fr}
+  .grid-2{grid-template-columns:1fr}
+  .grid-hero{grid-template-columns:1fr}
+  .bottom-nav{display:block}
+  .form-grid{grid-template-columns:1fr}
+  .card{padding:16px}
+  .kpi{padding:16px}
+  .kpi-value{font-size:22px}
+  .next-session{padding:20px}
+  .next-session .ns-title{font-size:18px}
+}
+@media(max-width:480px){
+  .grid-4{grid-template-columns:1fr 1fr}
+  .kpi-icon{width:34px;height:34px;font-size:17px}
+}
+</style>
+</head>
+<body>
+
+<!-- Mobile overlay -->
+<div class="overlay" id="overlay" onclick="closeSidebar()"></div>
+
+<!-- Sidebar -->
+<aside class="sidebar" id="sidebar">
+  <div class="brand">
+    <div class="brand-logo"><i class="ti ti-music"></i></div>
+    <div class="brand-text">
+      <strong>Staff Choir</strong>
+      <span>University of Embu</span>
+    </div>
+  </div>
+
+  <div class="nav-section">Overview</div>
+  <button class="nav-item active" data-tab="stats"><i class="ti ti-layout-dashboard"></i> Dashboard</button>
+  <button class="nav-item" data-tab="history"><i class="ti ti-history"></i> My Attendance</button>
+
+  <div class="nav-section">Actions</div>
+  <button class="nav-item" data-tab="apology"><i class="ti ti-mail-forward"></i> Submit Apology</button>
+
+  <div class="nav-section">Account</div>
+  <button class="nav-item" data-tab="profile"><i class="ti ti-user-circle"></i> My Profile</button>
+  <button class="nav-item" data-tab="committee"><i class="ti ti-users"></i> Committee</button>
+
+  <div class="sidebar-foot">
+    <button class="nav-item" onclick="doLogout()"><i class="ti ti-logout"></i> Sign out</button>
+  </div>
+</aside>
+
+<!-- Main -->
+<div class="main">
+  <div class="topbar">
+    <div class="topbar-left">
+      <button class="hamburger" onclick="openSidebar()"><i class="ti ti-menu-2"></i></button>
+      <h1 id="topbarTitle">Dashboard <span id="topbarSub">· Overview</span></h1>
+    </div>
+    <div class="topbar-right">
+      <button class="icon-btn" onclick="switchTab('apology')" title="Submit apology">
+        <i class="ti ti-bell"></i>
+      </button>
+      <div class="user-chip" onclick="toggleUserMenu(event)">
+        <div class="avatar" id="avatarChip">—</div>
+        <div class="user-chip-meta">
+          <strong id="chipName">Loading…</strong>
+          <span id="chipEmail">—</span>
+        </div>
+        <i class="ti ti-chevron-down" style="font-size:16px;color:var(--muted)"></i>
+      </div>
+
+      <div class="user-menu" id="userMenu">
+        <div class="user-menu-header">
+          <strong id="menuName">—</strong>
+          <span id="menuEmail">—</span>
+        </div>
+        <a onclick="switchTab('profile');closeUserMenu()"><i class="ti ti-user-circle"></i> My Profile</a>
+        <a onclick="switchTab('apology');closeUserMenu()"><i class="ti ti-mail-forward"></i> Submit Apology</a>
+        <a onclick="switchTab('history');closeUserMenu()"><i class="ti ti-history"></i> Attendance History</a>
+        <hr>
+        <a class="danger" onclick="doLogout()"><i class="ti ti-logout"></i> Sign out</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ STATS PANE ============ -->
+  <div id="pane-stats" class="pane">
+    <div class="page">
+      <div class="page-head">
+        <h2 id="greeting">Hello 👋</h2>
+        <p id="greetingSub">Here's your choir attendance at a glance.</p>
+      </div>
+
+      <!-- KPI row -->
+      <div class="grid grid-4" style="margin-bottom:16px">
+        <div class="kpi">
+          <div class="kpi-top">
+            <div class="kpi-icon green"><i class="ti ti-user-check"></i></div>
+          </div>
+          <div class="kpi-label">Present</div>
+          <div class="kpi-value" id="kpiPresent">—</div>
+          <div class="kpi-foot" id="kpiPresentFoot">All-time attendance</div>
+        </div>
+
+        <div class="kpi">
+          <div class="kpi-top">
+            <div class="kpi-icon amber"><i class="ti ti-clock"></i></div>
+          </div>
+          <div class="kpi-label">Late</div>
+          <div class="kpi-value" id="kpiLate">—</div>
+          <div class="kpi-foot" id="kpiLateFoot">Arrived after cutoff</div>
+        </div>
+
+        <div class="kpi">
+          <div class="kpi-top">
+            <div class="kpi-icon red"><i class="ti ti-user-x"></i></div>
+          </div>
+          <div class="kpi-label">Absent</div>
+          <div class="kpi-value" id="kpiAbsent">—</div>
+          <div class="kpi-foot" id="kpiAbsentFoot">Missed sessions</div>
+        </div>
+
+        <div class="kpi">
+          <div class="kpi-top">
+            <div class="kpi-icon brand"><i class="ti ti-percentage"></i></div>
+          </div>
+          <div class="kpi-label">Attendance Rate</div>
+          <div class="kpi-value" id="kpiRate">—</div>
+          <div class="kpi-foot" id="kpiRateFoot">Present + Late</div>
+        </div>
+      </div>
+
+      <!-- Hero row -->
+      <div class="grid grid-hero" style="margin-bottom:16px">
+        <div class="next-session" id="nextSessionCard">
+          <div class="ns-label"><i class="ti ti-calendar-event"></i> Next Session</div>
+          <div class="ns-title" id="nsTitle">Loading…</div>
+          <div class="ns-meta">
+            <span><i class="ti ti-clock"></i> 5:00 PM – 7:00 PM</span>
+            <span><i class="ti ti-map-pin"></i> Tution block</span>
+          </div>
+          <div class="ns-badge" id="nsBadge"><i class="ti ti-info-circle"></i> Evening rehearsal</div>
+        </div>
+
+        <div class="streak">
+          <div class="streak-top">
+            <div>
+              <div class="streak-label">Current streak</div>
+              <div class="streak-value" id="streakValue">0<span>sessions</span></div>
+            </div>
+            <div class="streak-emoji" id="streakEmoji">🌱</div>
+          </div>
+          <div class="streak-dots" id="streakDots"></div>
+        </div>
+      </div>
+
+      <!-- Chart + Activity -->
+      <div class="grid grid-hero">
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h3>Attendance trend</h3>
+              <p>Last 30 days</p>
+            </div>
+            <div class="pill brand"><i class="ti ti-trending-up"></i> <span id="trendLabel">—</span></div>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="myChart"></canvas>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h3>Recent activity</h3>
+              <p>Your last 5 sessions</p>
+            </div>
+          </div>
+          <div class="activity-list" id="activityList">
+            <div class="empty" style="padding:20px">
+              <p>Loading…</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ PROFILE PANE ============ -->
+  <div id="pane-profile" class="pane hidden">
+    <div class="page">
+      <div class="page-head">
+        <h2>My Profile</h2>
+        <p>Your personal and emergency contact details.</p>
+      </div>
+
+      <div class="grid grid-2">
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h3>Personal information</h3>
+              <p>Managed by the choir admin</p>
+            </div>
+          </div>
+          <div class="form-grid">
+            <div class="field"><label>Full Name</label><input id="pName" readonly></div>
+            <div class="field"><label>Member ID</label><input id="pMid" readonly></div>
+            <div class="field"><label>Voice Part</label><input id="pVoice" readonly></div>
+            <div class="field"><label>Department</label><input id="pDept" readonly></div>
+            <div class="field"><label>Email</label><input id="pEmail" readonly></div>
+            <div class="field"><label>Phone</label><input id="pPhone" readonly></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h3>Emergency contact</h3>
+              <p>Kept private, used only when needed</p>
+            </div>
+          </div>
+          <div class="form-grid">
+            <div class="field"><label>Contact Name</label><input id="eName" placeholder="e.g. Jane Wanjiku"></div>
+            <div class="field"><label>Relationship</label><input id="eRel" placeholder="e.g. Spouse"></div>
+            <div class="field"><label>Emergency Phone</label><input id="ePhone" placeholder="+254 7XX XXX XXX"></div>
+            <div class="field"><label>Your Phone</label><input id="myPhone" placeholder="+254 7XX XXX XXX"></div>
+          </div>
+          <div class="field" style="margin-top:14px">
+            <label>Profile Photo URL</label>
+            <input id="photoUrl" placeholder="https://…">
+          </div>
+          <button class="btn btn-primary" style="margin-top:18px" id="saveProfileBtn" onclick="saveProfile()">
+            <i class="ti ti-check"></i> Save Changes
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ APOLOGY PANE ============ -->
+  <div id="pane-apology" class="pane hidden">
+    <div class="page">
+      <div class="page-head">
+        <h2>Submit Apology</h2>
+        <p>Let the choir know in advance if you'll be late or absent.</p>
+      </div>
+
+      <div class="grid grid-2">
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h3>New apology</h3>
+              <p>Valid for any session day</p>
+            </div>
+          </div>
+
+          <div class="alert alert-info">
+            <i class="ti ti-info-circle"></i>
+            <div>
+              <strong>Cutoff times:</strong> Late — 4:30 PM · Absent — 4:00 PM<br>
+              <span style="opacity:.85">Session: 5:00 PM – 7:00 PM</span>
+            </div>
+          </div>
+
+          <div class="form-grid">
+            <div class="field">
+              <label>Type</label>
+              <select id="apType">
+                <option value="late">Late arrival</option>
+                <option value="absent">Absent</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Date</label>
+              <input type="date" id="apDate">
+            </div>
+          </div>
+
+          <div class="field" style="margin-top:14px">
+            <label>Reason *</label>
+            <textarea id="apReason" rows="4" placeholder="Briefly explain your reason…"></textarea>
+          </div>
+
+          <button class="btn btn-primary" style="margin-top:16px" id="apologyBtn" onclick="submitApology()">
+            <i class="ti ti-send"></i> Submit Apology
+          </button>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h3>My apologies</h3>
+              <p>Submission history</p>
+            </div>
+          </div>
+          <div id="apologyList">
+            <div class="empty"><p>Loading…</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ HISTORY PANE ============ -->
+  <div id="pane-history" class="pane hidden">
+    <div class="page">
+      <div class="page-head" style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px">
+        <div>
+          <h2>Attendance History</h2>
+          <p>Complete log of your session records.</p>
+        </div>
+        <button class="btn btn-secondary" onclick="exportPDF()">
+          <i class="ti ti-download"></i> Export PDF
+        </button>
+      </div>
+
+      <div class="card">
+        <div class="table-wrap">
+          <table id="histTbl">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Day</th>
+                <th>Session</th>
+                <th>Status</th>
+                <th>Apology</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ COMMITTEE PANE ============ -->
+  <div id="pane-committee" class="pane hidden">
+    <div class="page">
+      <div class="page-head">
+        <h2>Executive Committee</h2>
+        <p>Current leadership of the Staff Choir.</p>
+      </div>
+      <div class="committee-grid" id="committeeList">
+        <div class="empty" style="grid-column:1/-1"><p>Loading…</p></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Bottom nav (mobile) -->
+<nav class="bottom-nav">
+  <div class="bottom-nav-inner">
+    <a class="active" data-tab="stats"><i class="ti ti-layout-dashboard"></i>Home</a>
+    <a data-tab="history"><i class="ti ti-history"></i>History</a>
+    <a data-tab="apology"><i class="ti ti-mail-forward"></i>Apology</a>
+    <a data-tab="profile"><i class="ti ti-user-circle"></i>Profile</a>
+  </div>
+</nav>
+
+<div id="toastWrap"></div>
+
+<script>
+/* ============================================================
+   State
+   ============================================================ */
+let session, myMember, myProfile = {}, myAttendance = [];
+let chartInstance = null;
+
+const TAB_TITLES = {
+  stats:     { title: 'Dashboard',       sub: '· Overview' },
+  profile:   { title: 'My Profile',       sub: '· Personal details' },
+  apology:   { title: 'Submit Apology',   sub: '· In advance notice' },
+  history:   { title: 'Attendance',       sub: '· Full log' },
+  committee: { title: 'Committee',        sub: '· Leadership' }
+};
+
+/* ============================================================
+   Toast
+   ============================================================ */
+function toast(msg, type = "info") {
+  const wrap = document.getElementById('toastWrap');
+  const el = document.createElement('div');
+  el.className = 'toast-item ' + (type === 'success' ? 'success' : type === 'error' ? 'error' : '');
+  const icon = type === 'success' ? 'ti-circle-check' : type === 'error' ? 'ti-alert-circle' : 'ti-info-circle';
+  el.innerHTML = `<i class="ti ${icon}"></i><span>${msg}</span>`;
+  wrap.appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity .3s'; }, 2400);
+  setTimeout(() => el.remove(), 2800);
+}
+
+/* ============================================================
+   Sidebar & user menu
+   ============================================================ */
+function openSidebar() {
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('overlay').classList.add('show');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('overlay').classList.remove('show');
+}
+function toggleUserMenu(e) {
+  e.stopPropagation();
+  document.getElementById('userMenu').classList.toggle('open');
+}
+function closeUserMenu() {
+  document.getElementById('userMenu').classList.remove('open');
+}
+document.addEventListener('click', closeUserMenu);
+
+/* ============================================================
+   Logout
+   ============================================================ */
+async function doLogout() {
+  if (!confirm("Sign out of Staff Choir?")) return;
+  try { await sb.auth.signOut(); } catch (_) {}
+  location.href = "../login.html";
+}
+
+/* ============================================================
+   Tab switching
+   ============================================================ */
+function switchTab(name) {
+  if (!name) return;
+  document.querySelectorAll('.nav-item, .bottom-nav a').forEach(x => {
+    x.classList.toggle('active', x.dataset.tab === name);
+  });
+  document.querySelectorAll('.pane').forEach(p => p.classList.add('hidden'));
+  const pane = document.getElementById('pane-' + name);
+  if (pane) pane.classList.remove('hidden');
+
+  const meta = TAB_TITLES[name];
+  if (meta) {
+    document.getElementById('topbarTitle').innerHTML = `${meta.title} <span>${meta.sub}</span>`;
+  }
+
+  if (name === 'committee') loadCommittee();
+  if (name === 'apology')   loadApologies();
+  if (name === 'history')   renderHistory();
+  if (name === 'stats' && chartInstance) {
+    setTimeout(() => chartInstance.resize(), 60);
+  }
+  closeSidebar();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+document.querySelectorAll('[data-tab]').forEach(el => {
+  el.addEventListener('click', e => {
+    e.preventDefault();
+    switchTab(el.dataset.tab);
+  });
+});
+
+/* ============================================================
+   Helpers
+   ============================================================ */
+const _initials = window.initials || function(name){
+  if (!name) return '—';
+  return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0,2);
+};
+const _fmtDate = window.fmtDate || function(d){
+  if (!d) return '';
+  const date = new Date(d + 'T00:00:00');
+  return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+};
+const _todayISO = window.todayISO || function(){
+  return new Date().toISOString().slice(0,10);
+};
+const _dayName = window.dayName || function(dateStr){
+  return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'long' });
+};
+
+function relTime(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  const now = new Date();
+  const diffDays = Math.floor((now - d) / 86400000);
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays < 7) return `${diffDays} days ago`;
+  if (diffDays < 30) return `${Math.floor(diffDays/7)}w ago`;
+  return _fmtDate(dateStr);
+}
+
+/* ============================================================
+   Boot
+   ============================================================ */
+async function boot() {
+  try {
+    session = await requireAuth("member");
+    if (!session) return;
+  } catch (err) {
+    console.error(err);
+    toast("Session error — please sign in again", "error");
+    return;
+  }
+
+  const email = session.user.email;
+  document.getElementById('chipEmail').textContent = email;
+  document.getElementById('menuEmail').textContent = email;
+
+  const { data: link } = await sb.from('user_members')
+    .select('member_id').eq('user_id', session.user.id).maybeSingle();
+  let memberId = link?.member_id;
+  if (!memberId) {
+    const { data: byEmail } = await sb.from('members')
+      .select('member_id').eq('email', email).maybeSingle();
+    memberId = byEmail?.member_id;
+  }
+
+  if (memberId) {
+    const { data: m } = await sb.from('members')
+      .select('*').eq('member_id', memberId).maybeSingle();
+    myMember = m;
+  }
+
+  if (!myMember) {
+    document.getElementById('greeting').textContent = 'No member profile linked';
+    document.getElementById('greetingSub').textContent = 'Contact an admin to link your account to a member record.';
+    document.getElementById('statsGrid')?.classList?.add?.('hidden');
+    return;
+  }
+
+  const firstName = myMember.name.split(' ')[0];
+  document.getElementById('greeting').textContent = `Hello, ${firstName} 👋`;
+  document.getElementById('avatarChip').textContent = _initials(myMember.name);
+  document.getElementById('chipName').textContent = myMember.name;
+  document.getElementById('menuName').textContent = myMember.name;
+  document.getElementById('menuEmail').textContent = myMember.email || email;
+
+  const { data: prof } = await sb.from('user_profiles')
+    .select('*').eq('user_id', session.user.id).maybeSingle();
+  myProfile = prof || {};
+
+  const { data: att } = await sb.from('attendance')
+    .select('*').eq('member_id', myMember.member_id)
+    .order('date', { ascending: false });
+  myAttendance = att || [];
+
+  renderStats();
+  renderActivity();
+  fillProfile();
+}
+
+/* ============================================================
+   Stats
+   ============================================================ */
+function renderStats() {
+  const present = myAttendance.filter(a => a.status === 'Present').length;
+  const late    = myAttendance.filter(a => a.status === 'Late').length;
+  const absent  = myAttendance.filter(a => a.status === 'Absent').length;
+  const total   = present + late + absent;
+  const rate    = total ? Math.round((present + late) / total * 100) : 0;
+
+  document.getElementById('kpiPresent').textContent = present;
+  document.getElementById('kpiLate').textContent    = late;
+  document.getElementById('kpiAbsent').textContent  = absent;
+  document.getElementById('kpiRate').textContent    = rate + '%';
+
+  document.getElementById('kpiPresentFoot').textContent = total ? `out of ${total} sessions` : 'No records yet';
+  document.getElementById('kpiLateFoot').textContent    = 'Arrived after cutoff';
+  document.getElementById('kpiAbsentFoot').textContent  = 'Missed sessions';
+  document.getElementById('kpiRateFoot').textContent    = rate >= 80 ? 'Excellent' : rate >= 60 ? 'Good' : 'Needs improvement';
+
+  // Streak & next session
+  updateStreak();
+  updateNextSession();
+
+  // Trend indicator
+  const last7 = myAttendance.filter(a => {
+    const d = new Date(a.date + 'T00:00:00');
+    return (Date.now() - d) / 86400000 <= 7;
+  });
+  const prev7 = myAttendance.filter(a => {
+    const d = new Date(a.date + 'T00:00:00');
+    const diff = (Date.now() - d) / 86400000;
+    return diff > 7 && diff <= 14;
+  });
+  const lastRate = last7.length ? Math.round(last7.filter(a => a.status !== 'Absent').length / last7.length * 100) : 0;
+  const prevRate = prev7.length ? Math.round(prev7.filter(a => a.status !== 'Absent').length / prev7.length * 100) : 0;
+  const delta = lastRate - prevRate;
+  document.getElementById('trendLabel').textContent = delta === 0 ? 'Stable' : delta > 0 ? `+${delta}%` : `${delta}%`;
+
+  drawChart();
+}
+
+function updateStreak() {
+  // Sort ascending by date
+  const sorted = [...myAttendance].sort((a, b) => a.date.localeCompare(b.date));
+  let streak = 0;
+  let current = null;
+  for (const a of sorted) {
+    if (a.status === 'Present' || a.status === 'Late') {
+      if (current === null) streak = 1;
+      else {
+        const prev = new Date(current.date + 'T00:00:00');
+        const curr = new Date(a.date + 'T00:00:00');
+        const diff = (curr - prev) / 86400000;
+        if (diff <= 3) streak++;
+        else streak = 1;
+      }
+      current = a;
+    } else {
+      streak = 0;
+      current = null;
+    }
+  }
+  // If last record is absent or missing, streak = 0
+  if (!current) streak = 0;
+
+  document.getElementById('streakValue').innerHTML = `${streak}<span>session${streak === 1 ? '' : 's'}</span>`;
+  document.getElementById('streakEmoji').textContent =
+    streak >= 10 ? '🔥' : streak >= 5 ? '⚡' : streak >= 2 ? '✨' : '🌱';
+
+  // Dots: last 7 records
+  const last7 = sorted.slice(-7);
+  const dots = document.getElementById('streakDots');
+  dots.innerHTML = '';
+  for (let i = 0; i < 7; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'streak-dot';
+    if (i < last7.length) {
+      const s = last7[i].status;
+      dot.classList.add(s === 'Present' ? 'on' : s === 'Late' ? 'late' : 'miss');
+    }
+    dots.appendChild(dot);
+  }
+}
+
+function updateNextSession() {
+  // Next upcoming regular day (any day = today or tomorrow)
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const cutoffMins = 17 * 60; // 5:00 PM session start
+
+  let sessionDate = new Date(today);
+  if (now.getHours() * 60 + now.getMinutes() >= 19 * 60) {
+    // After 7 PM — next session is tomorrow
+    sessionDate.setDate(sessionDate.getDate() + 1);
+  }
+
+  const iso = sessionDate.toISOString().slice(0, 10);
+  const isToday = iso === _todayISO();
+
+  document.getElementById('nsTitle').textContent = isToday
+    ? "Today's session"
+    : `${_dayName(iso)}, ${_fmtDate(iso)}`;
+  document.getElementById('nsBadge').innerHTML = isToday
+    ? '<i class="ti ti-clock-hour-4"></i> Starts at 5:00 PM'
+    : '<i class="ti ti-calendar-event"></i> Evening rehearsal';
+}
+
+/* ============================================================
+   Chart
+   ============================================================ */
+function drawChart() {
+  const days = [];
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    days.push(d.toISOString().slice(0, 10));
+  }
+  const labels = days.map(d => {
+    const dt = new Date(d + 'T00:00:00');
+    return dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+  });
+  const data = days.map(d => {
+    const a = myAttendance.find(x => x.date === d);
+    if (!a) return null;
+    return a.status === 'Present' ? 2 : a.status === 'Late' ? 1 : 0;
+  });
+
+  if (chartInstance) chartInstance.destroy();
+
+  const canvas = document.getElementById('myChart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+
+  const gradient = ctx.createLinearGradient(0, 0, 0, 260);
+  gradient.addColorStop(0, 'rgba(79,70,229,0.18)');
+  gradient.addColorStop(1, 'rgba(79,70,229,0)');
+
+  chartInstance = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Attendance',
+        data,
+        borderColor: '#4f46e5',
+        backgroundColor: gradient,
+        tension: 0.35,
+        spanGaps: true,
+        pointBackgroundColor: '#4f46e5',
+        pointBorderColor: '#fff',
+        pointBorderWidth: 2,
+        pointRadius: 0,
+        pointHoverRadius: 6,
+        pointHoverBackgroundColor: '#4f46e5',
+        pointHoverBorderColor: '#fff',
+        pointHoverBorderWidth: 3,
+        borderWidth: 2.5,
+        fill: true
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 600, easing: 'easeOutQuart' },
+      interaction: { mode: 'index', intersect: false },
+      layout: { padding: { top: 10, right: 10, bottom: 0, left: 0 } },
+      scales: {
+        y: {
+          beginAtZero: true,
+          max: 2,
+          ticks: {
+            stepSize: 1,
+            color: '#9ca3af',
+            font: { size: 11, weight: '500' },
+            callback: v => v === 2 ? 'Present' : v === 1 ? 'Late' : v === 0 ? 'Absent' : ''
+          },
+          grid: { color: '#f3f4f6', drawBorder: false },
+          border: { display: false }
+        },
+        x: {
+          ticks: {
+            color: '#9ca3af',
+            font: { size: 10.5, weight: '500' },
+            maxRotation: 0,
+            autoSkip: true,
+            maxTicksLimit: 6
+          },
+          grid: { display: false },
+          border: { display: false }
+        }
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#111827',
+          titleColor: '#fff',
+          bodyColor: '#fff',
+          titleFont: { size: 12, weight: '600' },
+          bodyFont: { size: 12 },
+          padding: 10,
+          cornerRadius: 8,
+          displayColors: false,
+          callbacks: {
+            title: items => items[0].label,
+            label: item => {
+              const v = item.raw;
+              if (v === 2) return '✓ Present';
+              if (v === 1) return '⏰ Late';
+              if (v === 0) return '✗ Absent';
+              return 'No record';
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+/* ============================================================
+   Activity feed
+   ============================================================ */
+function renderActivity() {
+  const list = document.getElementById('activityList');
+  const recent = myAttendance.slice(0, 5);
+
+  if (!recent.length) {
+    list.innerHTML = `
+      <div class="empty">
+        <div class="empty-icon"><i class="ti ti-calendar-off"></i></div>
+        <h4>No activity yet</h4>
+        <p>Your attendance will appear here</p>
+      </div>`;
+    return;
+  }
+
+  list.innerHTML = recent.map(a => {
+    const cls = a.status === 'Present' ? 'green' : a.status === 'Late' ? 'amber' : 'red';
+    const icon = a.status === 'Present' ? 'ti-check' : a.status === 'Late' ? 'ti-clock' : 'ti-x';
+    return `
+      <div class="activity-item">
+        <div class="activity-dot ${cls}"><i class="ti ${icon}"></i></div>
+        <div class="activity-body">
+          <strong>${a.status}</strong>
+          <span>${_dayName(a.date)} · ${a.session}</span>
+        </div>
+        <div class="activity-time">${relTime(a.date)}</div>
+      </div>`;
+  }).join('');
+}
+
+/* ============================================================
+   Profile
+   ============================================================ */
+function fillProfile() {
+  document.getElementById('pName').value  = myMember.name || '';
+  document.getElementById('pMid').value   = myMember.member_id || '';
+  document.getElementById('pVoice').value = myMember.voice_part || '';
+  document.getElementById('pDept').value  = myMember.department || '';
+  document.getElementById('pEmail').value = myMember.email || '';
+  document.getElementById('pPhone').value = myMember.contact || '';
+  document.getElementById('eName').value  = myProfile.emergency_contact || '';
+  document.getElementById('eRel').value   = myProfile.emergency_relationship || '';
+  document.getElementById('ePhone').value = myProfile.emergency_phone || '';
+  document.getElementById('myPhone').value= myProfile.phone || '';
+  document.getElementById('photoUrl').value = myProfile.profile_photo_url || '';
+}
+
+async function saveProfile() {
+  const btn = document.getElementById('saveProfileBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="ti ti-loader"></i> Saving…';
+
+  const payload = {
+    user_id: session.user.id,
+    member_id: myMember.member_id,
+    full_name: myMember.name,
+    role: myProfile.role || 'member',
+    phone: document.getElementById('myPhone').value.trim(),
+    emergency_contact: document.getElementById('eName').value.trim(),
+    emergency_relationship: document.getElementById('eRel').value.trim(),
+    emergency_phone: document.getElementById('ePhone').value.trim(),
+    profile_photo_url: document.getElementById('photoUrl').value.trim(),
+    updated_at: new Date().toISOString()
+  };
+
+  const { error } = await sb.from('user_profiles').upsert(payload);
+  btn.disabled = false;
+  btn.innerHTML = '<i class="ti ti-check"></i> Save Changes';
+
+  if (error) return toast(error.message, 'error');
+  toast('Profile saved', 'success');
+  myProfile = { ...myProfile, ...payload };
+}
+
+/* ============================================================
+   Apologies
+   ============================================================ */
+async function submitApology() {
+  const date = document.getElementById('apDate').value;
+  const type = document.getElementById('apType').value;
+  const reason = document.getElementById('apReason').value.trim();
+  if (!date || !reason) return toast('Please fill in the date and reason', 'error');
+
+  if (date === _todayISO()) {
+    const now = new Date();
+    const nowMins = now.getHours() * 60 + now.getMinutes();
+    const lateCutoff = 16 * 60 + 30;
+    const absentCutoff = 16 * 60;
+    if (type === 'late'   && nowMins > lateCutoff)   return toast('Late cutoff (4:30 PM) has passed', 'error');
+    if (type === 'absent' && nowMins > absentCutoff) return toast('Absence cutoff (4:00 PM) has passed', 'error');
+  }
+
+  const btn = document.getElementById('apologyBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="ti ti-loader"></i> Submitting…';
+
+  const { error } = await sb.from('apology_requests').insert({
+    member_id: myMember.member_id,
+    apology_type: type,
+    date,
+    session: 'Evening',
+    reason,
+    status: 'pending'
+  });
+
+  btn.disabled = false;
+  btn.innerHTML = '<i class="ti ti-send"></i> Submit Apology';
+
+  if (error) return toast(error.message, 'error');
+  toast('Apology submitted', 'success');
+  document.getElementById('apReason').value = '';
+  loadApologies();
+}
+
+async function loadApologies() {
+  const { data } = await sb.from('apology_requests')
+    .select('*').eq('member_id', myMember.member_id)
+    .order('created_at', { ascending: false });
+
+  if (!data || !data.length) {
+    document.getElementById('apologyList').innerHTML = `
+      <div class="empty">
+        <div class="empty-icon"><i class="ti ti-mail-off"></i></div>
+        <h4>No apologies yet</h4>
+        <p>Submitted apologies will appear here</p>
+      </div>`;
+    return;
+  }
+
+  document.getElementById('apologyList').innerHTML = data.map(a => `
+    <div style="padding:14px 0;border-bottom:1px solid var(--border-soft)">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:6px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="pill ${a.apology_type === 'late' ? 'amber' : 'red'}">
+            <i class="ti ${a.apology_type === 'late' ? 'ti-clock' : 'ti-x'}"></i>
+            ${a.apology_type === 'late' ? 'Late' : 'Absent'}
+          </span>
+          <strong style="font-size:13.5px">${_fmtDate(a.date)}</strong>
+        </div>
+        <span class="pill ${a.status === 'pending' ? 'gray' : a.status === 'approved' ? 'green' : 'red'}">${a.status}</span>
+      </div>
+      <div style="font-size:13px;color:var(--text-soft);line-height:1.5">${a.reason}</div>
+      ${a.admin_notes ? `<div style="font-size:12px;color:var(--brand);margin-top:8px;padding:8px 10px;background:var(--brand-light);border-radius:7px"><strong>Admin:</strong> ${a.admin_notes}</div>` : ''}
+    </div>`).join('');
+}
+
+/* ============================================================
+   History + PDF
+   ============================================================ */
+function renderHistory() {
+  const tb = document.querySelector('#histTbl tbody');
+  if (!myAttendance.length) {
+    tb.innerHTML = `<tr><td colspan="5">
+      <div class="empty">
+        <div class="empty-icon"><i class="ti ti-calendar-off"></i></div>
+        <h4>No attendance records</h4>
+        <p>Records will appear after your first session</p>
+      </div>
+    </td></tr>`;
+    return;
+  }
+  tb.innerHTML = myAttendance.map(a => `
+    <tr>
+      <td><strong>${_fmtDate(a.date)}</strong></td>
+      <td>${_dayName(a.date)}</td>
+      <td>${a.session}</td>
+      <td><span class="pill ${a.status === 'Present' ? 'green' : a.status === 'Late' ? 'amber' : 'red'}">${a.status}</span></td>
+      <td>${a.apology_approved ? '<span class="pill green"><i class="ti ti-check"></i>Approved</span>' : '<span style="color:var(--muted)">—</span>'}</td>
+    </tr>`).join('');
+}
+
+function exportPDF() {
+  if (!window.jspdf) return toast('PDF library not loaded', 'error');
+  if (!myAttendance.length) return toast('No records to export', 'error');
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const brand = [79, 70, 229];
+
+  doc.setFontSize(20);
+  doc.setTextColor(...brand);
+  doc.text("Staff Choir — Attendance Record", 14, 22);
+
+  doc.setFontSize(11);
+  doc.setTextColor(90, 90, 90);
+  doc.text(`${myMember.name} · ${myMember.member_id}`, 14, 32);
+  doc.text(`University of Embu`, 14, 39);
+
+  doc.setDrawColor(...brand);
+  doc.setLineWidth(0.6);
+  doc.line(14, 45, 196, 45);
+
+  let y = 55;
+  const present = myAttendance.filter(a => a.status === 'Present').length;
+  const late    = myAttendance.filter(a => a.status === 'Late').length;
+  const absent  = myAttendance.filter(a => a.status === 'Absent').length;
+  const rate    = myAttendance.length ? Math.round((present + late) / myAttendance.length * 100) : 0;
+
+  doc.setTextColor(30, 30, 30);
+  doc.setFontSize(10);
+  doc.text(`Summary  ·  Present: ${present}   Late: ${late}   Absent: ${absent}   Rate: ${rate}%`, 14, y);
+  y += 10;
+
+  doc.setDrawColor(220, 220, 220);
+  doc.line(14, y, 196, y);
+  y += 10;
+
+  doc.setFontSize(10);
+  myAttendance.forEach(a => {
+    if (y > 280) { doc.addPage(); y = 20; }
+    doc.setTextColor(60, 60, 60);
+    doc.text(`${_fmtDate(a.date)}  —  ${a.session}  —  ${a.status}${a.apology_approved ? ' (apology)' : ''}`, 14, y);
+    y += 6.5;
+  });
+
+  const pages = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= pages; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8);
+    doc.setTextColor(150, 150, 150);
+    doc.text(`Generated ${new Date().toLocaleString()}  ·  Page ${i} of ${pages}`, 14, 292);
+  }
+
+  doc.save(`${myMember.member_id}-attendance.pdf`);
+}
+
+/* ============================================================
+   Committee
+   ============================================================ */
+async function loadCommittee() {
+  const { data } = await sb.from('executive_committee').select('*').eq('is_active', true);
+  const ORDER = ['Chairman','Vice Chair','Secretary','Treasurer','Disciplinarian','Welfare Secretary'];
+  const sorted = (data || []).sort((a, b) => ORDER.indexOf(a.role) - ORDER.indexOf(b.role));
+
+  if (!sorted.length) {
+    document.getElementById('committeeList').innerHTML = `
+      <div class="empty" style="grid-column:1/-1">
+        <div class="empty-icon"><i class="ti ti-users-off"></i></div>
+        <h4>No committee members</h4>
+        <p>Current leadership will appear here</p>
+      </div>`;
+    return;
+  }
+
+  document.getElementById('committeeList').innerHTML = sorted.map(e => `
+    <div class="committee-card">
+      <div class="committee-avatar">${_initials(e.name)}</div>
+      <div class="committee-body">
+        <strong>${e.name}</strong>
+        <div class="role">${e.role}</div>
+        <div class="year">${e.academic_year}${e.phone ? ' · ' + e.phone : ''}</div>
+      </div>
+    </div>`).join('');
+}
+
+/* ============================================================
+   Init
+   ============================================================ */
+document.getElementById('apDate').value = _todayISO();
+boot();
+</script>
+</body>
+</html>

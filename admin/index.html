@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Dashboard — Staff Choir</title>
+<!-- SHARED ADMIN HEAD -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../supabase-config.js"></script>
+<script src="../cache-helper.js"></script>
+<style>
+:root{
+  --primary:#2563eb;--primary-dark:#1d4ed8;--primary-light:#dbeafe;
+  --green:#10b981;--amber:#f59e0b;--red:#ef4444;
+  --bg:#f8fafc;--surface:#fff;--text:#0f172a;--muted:#64748b;
+  --border:#e2e8f0;--sidebar-w:240px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Inter,sans-serif;background:var(--bg);color:var(--text);font-size:14px}
+.sidebar{
+  position:fixed;top:0;left:0;width:var(--sidebar-w);height:100vh;background:#0f172a;color:#cbd5e1;
+  display:flex;flex-direction:column;padding:20px 14px;z-index:100;overflow-y:auto;
+}
+.sidebar .brand{display:flex;align-items:center;gap:10px;color:#fff;font-weight:700;font-size:16px;padding:0 8px 20px;border-bottom:1px solid #1e293b;margin-bottom:16px}
+.sidebar .brand i{font-size:24px;color:#60a5fa}
+.nav-group{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#64748b;padding:12px 10px 6px;font-weight:600}
+.nav-item{
+  display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;color:#cbd5e1;
+  text-decoration:none;font-size:14px;font-weight:500;margin-bottom:2px;position:relative;transition:.15s;
+}
+.nav-item:hover{background:#1e293b;color:#fff}
+.nav-item.active{background:var(--primary);color:#fff}
+.nav-item i{font-size:18px}
+.badge{margin-left:auto;background:var(--amber);color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px}
+.badge.today{background:var(--green)}
+.main{margin-left:var(--sidebar-w);padding:24px 28px 80px;min-height:100vh}
+.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px}
+.topbar h1{font-size:22px;font-weight:700}
+.topbar .user{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted)}
+.avatar{width:36px;height:36px;border-radius:50%;background:var(--primary-light);color:var(--primary);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px}
+.btn{
+  padding:10px 16px;border-radius:8px;border:none;background:var(--primary);color:#fff;
+  font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:6px;transition:.15s;text-decoration:none;
+}
+.btn:hover{background:var(--primary-dark)}
+.btn.ghost{background:#fff;color:var(--text);border:1.5px solid var(--border)}
+.btn.ghost:hover{background:#f1f5f9}
+.btn.danger{background:var(--red)}
+.btn.success{background:var(--green)}
+.btn.amber{background:var(--amber)}
+.btn.sm{padding:6px 10px;font-size:12px}
+.card{background:var(--surface);border-radius:12px;padding:20px;border:1px solid var(--border);box-shadow:0 1px 3px rgba(0,0,0,.03)}
+.grid{display:grid;gap:16px}
+.kpis{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.kpi{background:var(--surface);border-radius:12px;padding:20px;border:1px solid var(--border)}
+.kpi .label{font-size:12px;color:var(--muted);text-transform:uppercase;font-weight:600;letter-spacing:.04em}
+.kpi .value{font-size:28px;font-weight:800;margin-top:6px}
+.kpi .icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;margin-bottom:10px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--border)}
+th{background:#f8fafc;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:700}
+tr:hover td{background:#f8fafc}
+.pill{padding:3px 9px;border-radius:12px;font-size:11px;font-weight:600;display:inline-block}
+.pill.green{background:#d1fae5;color:#065f46}
+.pill.amber{background:#fef3c7;color:#92400e}
+.pill.red{background:#fee2e2;color:#991b1b}
+.pill.blue{background:var(--primary-light);color:var(--primary-dark)}
+.pill.gray{background:#f1f5f9;color:#475569}
+input,select,textarea{
+  padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:13px;
+  background:#fff;color:var(--text);transition:.15s;
+}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-light)}
+.mobile-nav{display:none}
+@media(max-width:900px){
+  .sidebar{transform:translateX(-100%);transition:.25s}
+  .sidebar.open{transform:translateX(0)}
+  .main{margin-left:0;padding:16px 14px 90px}
+  .mobile-nav{
+    display:flex;position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--border);
+    z-index:99;padding:8px 4px;justify-content:space-around;
+  }
+  .mobile-nav a{
+    flex:1;text-align:center;color:var(--muted);text-decoration:none;font-size:10px;font-weight:600;
+    display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 0;
+  }
+  .mobile-nav a.active{color:var(--primary)}
+  .mobile-nav a i{font-size:20px}
+  .hamburger{display:flex!important}
+  table{font-size:12px}
+  .grid.kpis{grid-template-columns:repeat(2,1fr)}
+}
+.hamburger{display:none;background:none;border:none;font-size:22px;color:var(--text);cursor:pointer}
+.hidden{display:none!important}
+</style>
+</head><body>
+
+<!-- SHARED ADMIN SHELL -->
+<aside class="sidebar" id="sidebar">
+  <div class="brand"><i class="ti ti-music"></i> Staff Choir</div>
+  <div class="nav-group">Main</div>
+  <a class="nav-item" href="index.html"><i class="ti ti-layout-dashboard"></i> Dashboard</a>
+  <a class="nav-item" href="mark-attendance.html"><i class="ti ti-checklist"></i> Mark Attendance <span class="badge today">Today</span></a>
+  <a class="nav-item" href="reports.html"><i class="ti ti-file-analytics"></i> Reports</a>
+  <a class="nav-item" href="analytics.html"><i class="ti ti-chart-line"></i> Analytics</a>
+  <div class="nav-group">Management</div>
+  <a class="nav-item" href="apologies.html"><i class="ti ti-mail"></i> Apologies <span class="badge" id="apologyBadge">0</span></a>
+  <a class="nav-item" href="members.html"><i class="ti ti-users"></i> Members</a>
+  <a class="nav-item" href="manage-members.html"><i class="ti ti-user-cog"></i> Manage Members</a>
+  <a class="nav-item" href="executive.html"><i class="ti ti-crown"></i> Executive</a>
+   <div class="sidebar-foot">
+    <a class="nav-item" href="#" onclick="logout();return false;"><i class="ti ti-logout"></i> Logout</a>
+  </div>
+</aside>
+
+<main class="main">
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:12px">
+      <button class="hamburger" onclick="document.getElementById('sidebar').classList.toggle('open')"><i class="ti ti-menu-2"></i></button>
+      <h1 id="pageTitle">Dashboard</h1>
+    </div>
+    <div class="user">
+      <div class="avatar" id="userAvatar">A</div>
+      <span id="userEmail">admin</span>
+    </div>
+  </div>
+
+  <!-- PAGE CONTENT -->
+  <div class="grid kpis" id="kpis">
+    <div class="kpi"><div class="icon" style="background:#dbeafe;color:#2563eb"><i class="ti ti-users"></i></div><div class="label">Total Members</div><div class="value" id="kpiTotal">—</div></div>
+    <div class="kpi"><div class="icon" style="background:#d1fae5;color:#10b981"><i class="ti ti-check"></i></div><div class="label">Present Today</div><div class="value" id="kpiPresent">—</div></div>
+    <div class="kpi"><div class="icon" style="background:#fef3c7;color:#f59e0b"><i class="ti ti-clock"></i></div><div class="label">Late Today</div><div class="value" id="kpiLate">—</div></div>
+    <div class="kpi"><div class="icon" style="background:#fee2e2;color:#ef4444"><i class="ti ti-x"></i></div><div class="label">Absent Today</div><div class="value" id="kpiAbsent">—</div></div>
+  </div>
+
+  <div class="grid" style="grid-template-columns:1fr;margin-top:20px">
+    <div class="card">
+      <h3 style="font-size:15px;margin-bottom:14px"><i class="ti ti-bolt"></i> Quick Actions</h3>
+      <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">
+        <a href="mark-attendance.html" class="btn"><i class="ti ti-checklist"></i> Mark Attendance</a>
+        <a href="apologies.html" class="btn amber"><i class="ti ti-mail"></i> Review Apologies</a>
+        <a href="reports.html" class="btn ghost"><i class="ti ti-file-analytics"></i> Reports</a>
+        <a href="manage-members.html" class="btn ghost"><i class="ti ti-user-plus"></i> Manage Members</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="font-size:15px;margin-bottom:14px"><i class="ti ti-calendar"></i> Today's Session — <span id="todayLabel"></span></h3>
+      <div id="sessionBreakdown">Loading…</div>
+    </div>
+
+    <div class="card">
+      <h3 style="font-size:15px;margin-bottom:14px"><i class="ti ti-activity"></i> Recent Activity</h3>
+      <div id="recentActivity">Loading…</div>
+    </div>
+  </div>
+</main>
+
+<nav class="mobile-nav">
+  <a href="index.html"><i class="ti ti-layout-dashboard"></i>Home</a>
+  <a href="mark-attendance.html"><i class="ti ti-checklist"></i>Mark</a>
+  <a href="reports.html"><i class="ti ti-file-analytics"></i>Reports</a>
+  <a href="analytics.html"><i class="ti ti-chart-line"></i>Analytics</a>
+</nav>
+
+<script>
+// Highlight active nav
+document.querySelectorAll('.nav-item, .mobile-nav a').forEach(a => {
+  if (a.getAttribute('href') === location.pathname.split('/').pop()) a.classList.add('active');
+});
+// Session check + user info
+(async () => {
+  const session = await requireAuth("admin");
+  if (!session) return;
+  document.getElementById('userEmail').textContent = session.user.email;
+  document.getElementById('userAvatar').textContent = initials(session.user.email.split('@')[0]);
+  // Load pending apologies count
+  const { count } = await sb.from('apology_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending');
+  const b = document.getElementById('apologyBadge');
+  if (b) { b.textContent = count || 0; if (!count) b.style.display = 'none'; }
+})();
+
+async function loadDashboard() {
+  const today = todayISO();
+  document.getElementById('todayLabel').textContent = fmtDate(today) + " (" + dayName(today) + ")";
+
+  // KPIs
+  const [membersRes, attendanceRes] = await Promise.all([
+    sb.from('members').select('*', { count: 'exact', head: true }).eq('status', 'active'),
+    sb.from('attendance').select('status').eq('date', today)
+  ]);
+  const total = membersRes.count || 0;
+  const att = attendanceRes.data || [];
+  const markedCount = att.length;
+  const present = att.filter(a => a.status === 'Present').length;
+  const late    = att.filter(a => a.status === 'Late').length;
+  const absent  = att.filter(a => a.status === 'Absent').length;
+
+  const hasMarks = markedCount > 0;
+
+  document.getElementById('kpiTotal').textContent   = total;
+  document.getElementById('kpiPresent').textContent = hasMarks ? present : '—';
+  document.getElementById('kpiLate').textContent    = hasMarks ? late    : '—';
+  document.getElementById('kpiAbsent').textContent  = hasMarks ? absent  : '—';
+
+  // Optional contextual footers if the elements exist
+  const footPresent = document.getElementById('kpiPresentFoot');
+  const footLate    = document.getElementById('kpiLateFoot');
+  const footAbsent  = document.getElementById('kpiAbsentFoot');
+  if (footPresent) footPresent.textContent = hasMarks ? `${present} of ${markedCount} marked` : 'Not marked yet';
+  if (footLate)    footLate.textContent    = hasMarks ? 'Arrived late' : 'Not marked yet';
+  if (footAbsent)  footAbsent.textContent  = hasMarks ? 'Marked absent' : 'Not marked yet';
+
+  // Session breakdown
+  const pct = total ? Math.round(markedCount / total * 100) : 0;
+
+  if (markedCount === 0) {
+    document.getElementById('sessionBreakdown').innerHTML = `
+      <div style="text-align:center;padding:24px 8px;color:var(--muted)">
+        <i class="ti ti-clipboard-off" style="font-size:34px;opacity:.5"></i>
+        <p style="margin-top:10px;font-size:13px">No attendance has been marked for today yet.</p>
+        <a href="mark-attendance.html" class="btn" style="margin-top:14px;display:inline-flex">
+          <i class="ti ti-checklist"></i> Mark Attendance
+        </a>
+      </div>`;
+  } else {
+    document.getElementById('sessionBreakdown').innerHTML = `
+      <div style="margin-bottom:12px;display:flex;justify-content:space-between;font-size:13px;font-weight:600">
+        <span>Evening Session</span><span>${markedCount} / ${total} marked</span>
+      </div>
+      <div style="height:10px;background:#f1f5f9;border-radius:6px;overflow:hidden;margin-bottom:16px">
+        <div style="height:100%;width:${pct}%;background:var(--primary);transition:.4s"></div>
+      </div>
+      <div class="grid" style="grid-template-columns:repeat(3,1fr);gap:10px;text-align:center">
+        <div><div style="font-size:22px;font-weight:800;color:var(--green)">${present}</div><div style="font-size:11px;color:var(--muted);text-transform:uppercase">Present</div></div>
+        <div><div style="font-size:22px;font-weight:800;color:var(--amber)">${late}</div><div style="font-size:11px;color:var(--muted);text-transform:uppercase">Late</div></div>
+        <div><div style="font-size:22px;font-weight:800;color:var(--red)">${absent}</div><div style="font-size:11px;color:var(--muted);text-transform:uppercase">Absent</div></div>
+      </div>`;
+  }
+
+  // Recent activity
+  const { data: recent } = await sb.from('attendance')
+    .select('*').order('marked_at', { ascending: false }).limit(8);
+  if (recent && recent.length) {
+    const ids = [...new Set(recent.map(r => r.member_id))];
+    const { data: mems } = await sb.from('members').select('member_id,name').in('member_id', ids);
+    const nameMap = Object.fromEntries((mems || []).map(m => [m.member_id, m.name]));
+    document.getElementById('recentActivity').innerHTML = recent.map(r => `
+      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px">
+        <div><strong>${nameMap[r.member_id] || r.member_id}</strong> <span class="pill ${r.status==='Present'?'green':r.status==='Late'?'amber':'red'}">${r.status}</span></div>
+        <span style="color:var(--muted);font-size:12px">${fmtDate(r.date)}</span>
+      </div>`).join('');
+  } else {
+    document.getElementById('recentActivity').innerHTML = '<p style="color:var(--muted);font-size:13px">No attendance records yet.</p>';
+  }
+}
+loadDashboard();
+setInterval(loadDashboard, 5 * 60 * 1000);
+</script>
+</body></html>

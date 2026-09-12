@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Analytics — Staff Choir</title>
+<!-- SHARED ADMIN HEAD -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../supabase-config.js"></script>
+<script src="../cache-helper.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root{
+  --primary:#2563eb;--primary-dark:#1d4ed8;--primary-light:#dbeafe;
+  --green:#10b981;--amber:#f59e0b;--red:#ef4444;
+  --bg:#f8fafc;--surface:#fff;--text:#0f172a;--muted:#64748b;
+  --border:#e2e8f0;--sidebar-w:240px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Inter,sans-serif;background:linear-gradient(135deg,#f8fafc 0%,#eef2f7 100%);color:var(--text);font-size:14px;min-height:100vh}
+.sidebar{position:fixed;top:0;left:0;width:var(--sidebar-w);height:100vh;background:linear-gradient(180deg,#0f172a 0%,#111c33 100%);color:#cbd5e1;display:flex;flex-direction:column;padding:20px 14px;z-index:100;overflow-y:auto}
+.sidebar .brand{display:flex;align-items:center;gap:10px;color:#fff;font-weight:700;font-size:16px;padding:0 8px 20px;border-bottom:1px solid #1e293b;margin-bottom:16px}
+.sidebar .brand i{font-size:24px;color:#60a5fa}
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:99;opacity:0;transition:opacity .2s}
+.sidebar-overlay.show{display:block;opacity:1}
+@media(min-width:901px){.sidebar-overlay{display:none!important}}
+.nav-group{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#64748b;padding:12px 10px 6px;font-weight:600}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;color:#cbd5e1;text-decoration:none;font-size:14px;font-weight:500;margin-bottom:2px;position:relative;transition:.15s}
+.nav-item:hover{background:#1e293b;color:#fff}
+.nav-item.active{background:var(--primary);color:#fff;box-shadow:0 0 0 2px rgba(37,99,235,.3)}
+.nav-item i{font-size:18px}
+.badge{margin-left:auto;background:var(--amber);color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px}
+.badge.today{background:var(--green)}
+.main{margin-left:var(--sidebar-w);padding:24px 28px 80px;min-height:100vh}
+.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;padding-bottom:16px;border-bottom:1px solid var(--border)}
+.topbar h1{font-size:22px;font-weight:700}
+.topbar .user{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted)}
+.avatar{width:36px;height:36px;border-radius:50%;background:var(--primary-light);color:var(--primary);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px}
+.btn{padding:10px 16px;border-radius:8px;border:none;background:var(--primary);color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:6px;transition:.15s;text-decoration:none}
+.btn:hover{background:var(--primary-dark);transform:translateY(-1px);box-shadow:0 4px 12px rgba(37,99,235,.2)}
+.btn.ghost{background:#fff;color:var(--text);border:1.5px solid var(--border)}
+.btn.ghost:hover{background:#f1f5f9;box-shadow:0 4px 12px rgba(0,0,0,.06)}
+.btn.danger{background:var(--red)}
+.btn.success{background:var(--green)}
+.btn.amber{background:var(--amber)}
+.btn.sm{padding:6px 10px;font-size:12px}
+.card{background:var(--surface);border-radius:12px;padding:20px;border:1px solid var(--border);box-shadow:0 2px 8px rgba(15,23,42,.04);transition:box-shadow .2s}
+.card:hover{box-shadow:0 4px 16px rgba(15,23,42,.08)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--border)}
+th{background:#f8fafc;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:700;position:sticky;top:0;z-index:1}
+tbody tr:nth-child(even){background:#f8fafc}
+tr:hover td{background:#eef2f7}
+.pill{padding:3px 9px;border-radius:12px;font-size:11px;font-weight:600;display:inline-block}
+.pill.green{background:#d1fae5;color:#065f46}
+.pill.amber{background:#fef3c7;color:#92400e}
+.pill.red{background:#fee2e2;color:#991b1b}
+.pill.blue{background:var(--primary-light);color:var(--primary-dark)}
+.pill.gray{background:#f1f5f9;color:#475569}
+input,select,textarea{padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:13px;background:#fff;color:var(--text);transition:.15s}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-light)}
+.mobile-nav{display:none}
+@media(max-width:900px){
+  .sidebar{transform:translateX(-100%);transition:.25s}
+  .sidebar.open{transform:translateX(0)}
+  .main{margin-left:0;padding:16px 14px 90px}
+  .mobile-nav{display:flex;position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--border);z-index:99;padding:8px 4px;justify-content:space-around;box-shadow:0 -4px 12px rgba(15,23,42,.06)}
+  .mobile-nav a{flex:1;text-align:center;color:var(--muted);text-decoration:none;font-size:10px;font-weight:600;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 0}
+  .mobile-nav a.active{color:var(--primary)}
+  .mobile-nav a i{font-size:20px}
+  .hamburger{display:flex!important}
+  table{font-size:12px}
+}
+.hamburger{display:none;background:none;border:none;font-size:22px;color:var(--text);cursor:pointer}
+.hidden{display:none!important}
+
+/* page-specific */
+.tabs{display:flex;gap:4px;background:#eef2f7;padding:4px;border-radius:10px;margin-bottom:20px;box-shadow:inset 0 1px 3px rgba(0,0,0,.04)}
+.tab{padding:9px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;color:var(--muted);transition:.15s}
+.tab.active{background:#fff;color:var(--primary);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+#trendChart{max-height:320px}
+#topList > div{transition:background .15s;border-radius:8px}
+#topList > div:hover{background:#f1f5f9;padding-left:8px;padding-right:8px;margin-left:-8px;margin-right:-8px}
+@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+</style>
+</head><body>
+
+<!-- SHARED ADMIN SHELL -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+  <div class="brand"><i class="ti ti-music"></i> Staff Choir</div>
+  <div class="nav-group">Main</div>
+  <a class="nav-item" href="index.html"><i class="ti ti-layout-dashboard"></i> Dashboard</a>
+  <a class="nav-item" href="mark-attendance.html"><i class="ti ti-checklist"></i> Mark Attendance <span class="badge today">Today</span></a>
+  <a class="nav-item" href="reports.html"><i class="ti ti-file-analytics"></i> Reports</a>
+  <a class="nav-item" href="analytics.html"><i class="ti ti-chart-line"></i> Analytics</a>
+  <div class="nav-group">Management</div>
+  <a class="nav-item" href="apologies.html"><i class="ti ti-mail"></i> Apologies <span class="badge" id="apologyBadge">0</span></a>
+  <a class="nav-item" href="members.html"><i class="ti ti-users"></i> Members</a>
+  <a class="nav-item" href="manage-members.html"><i class="ti ti-user-cog"></i> Manage Members</a>
+  <a class="nav-item" href="executive.html"><i class="ti ti-crown"></i> Executive</a>
+  <div class="sidebar-foot">
+    <a class="nav-item" href="#" onclick="logout();return false;"><i class="ti ti-logout"></i> Logout</a>
+  </div>
+</aside>
+
+<main class="main">
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:12px">
+      <button class="hamburger" onclick="document.getElementById('sidebar').classList.toggle('open')"><i class="ti ti-menu-2"></i></button>
+      <h1 id="pageTitle">Analytics</h1>
+    </div>
+    <div class="user">
+      <div class="avatar" id="userAvatar">A</div>
+      <span id="userEmail">admin</span>
+    </div>
+  </div>
+
+  <!-- PAGE CONTENT -->
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('trend',this)"><i class="ti ti-chart-line"></i> Group Trends</div>
+    <div class="tab" onclick="switchTab('members',this)"><i class="ti ti-users"></i> Members</div>
+  </div>
+
+  <div id="tab-trend" class="tab-pane">
+    <div class="grid" style="grid-template-columns:1fr;gap:16px">
+      <div class="card">
+        <h3 style="margin-bottom:16px;font-size:15px"><i class="ti ti-chart-line"></i> Attendance Trend (Last 30 Days)</h3>
+        <canvas id="trendChart" height="90"></canvas>
+      </div>
+      <div class="card">
+        <h3 style="margin-bottom:16px;font-size:15px"><i class="ti ti-trophy"></i> Top Performers</h3>
+        <div id="topList"><div style="text-align:center;padding:20px"><i class="ti ti-loader-2" style="font-size:24px;animation:spin 1s linear infinite"></i></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="tab-members" class="tab-pane hidden">
+    <div class="card">
+      <h3 style="font-size:15px;margin-bottom:14px"><i class="ti ti-users"></i> Member Statistics</h3>
+      <input type="text" placeholder="🔍 Search members…" style="width:100%;margin-bottom:14px" oninput="renderMembers(this.value)">
+      <div style="overflow-x:auto"><table id="memTbl"><thead><tr>
+        <th>Name</th><th>Voice</th><th>Present</th><th>Late</th><th>Absent</th><th>Rate</th>
+      </tr></thead><tbody></tbody></table></div>
+    </div>
+  </div>
+</main>
+
+<nav class="mobile-nav">
+  <a href="index.html"><i class="ti ti-layout-dashboard"></i>Home</a>
+  <a href="mark-attendance.html"><i class="ti ti-checklist"></i>Mark</a>
+  <a href="reports.html"><i class="ti ti-file-analytics"></i>Reports</a>
+  <a href="analytics.html"><i class="ti ti-chart-line"></i>Analytics</a>
+</nav>
+
+<script>
+// Shared shell init
+document.querySelectorAll('.nav-item, .mobile-nav a').forEach(a => {
+  if (a.getAttribute('href') === location.pathname.split('/').pop()) a.classList.add('active');
+});
+(async () => {
+  const session = await requireAuth("admin");
+  if (!session) return;
+  document.getElementById('userEmail').textContent = session.user.email;
+  document.getElementById('userAvatar').textContent = initials(session.user.email.split('@')[0]);
+  const { count } = await sb.from('apology_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending');
+  const b = document.getElementById('apologyBadge');
+  if (b) { b.textContent = count || 0; if (!count) b.style.display = 'none'; }
+})();
+
+// Page logic
+let allStats = [];
+let chartInstance = null;
+
+function switchTab(name, el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.add('hidden'));
+  document.getElementById('tab-' + name).classList.remove('hidden');
+}
+
+async function loadAnalytics() {
+  const days = [];
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    days.push(d.toISOString().slice(0, 10));
+  }
+  const { data: att } = await sb.from('attendance').select('*').in('date', days);
+  const { data: mems } = await sb.from('members').select('*').eq('status', 'active');
+  const allMems = mems || [];
+
+  const byDate = days.map(d => {
+    const dayAtt = (att || []).filter(a => a.date === d);
+    return {
+      date: d,
+      present: dayAtt.filter(a => a.status === 'Present').length,
+      late: dayAtt.filter(a => a.status === 'Late').length
+    };
+  });
+
+  if (chartInstance) chartInstance.destroy();
+  const ctx = document.getElementById('trendChart').getContext('2d');
+  chartInstance = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: byDate.map(d => fmtDate(d.date).slice(0, 5)),
+      datasets: [
+        { label: 'Present', data: byDate.map(d => d.present), borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,.1)', tension: .35, fill: true },
+        { label: 'Late', data: byDate.map(d => d.late), borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,.1)', tension: .35, fill: true }
+      ]
+    },
+    options: { responsive: true, plugins: { legend: { position: 'bottom' } }, scales: { y: { beginAtZero: true } } }
+  });
+
+  allStats = allMems.map(m => {
+    const my = (att || []).filter(a => a.member_id === m.member_id);
+    const present = my.filter(a => a.status === 'Present').length;
+    const late = my.filter(a => a.status === 'Late').length;
+    const absent = my.filter(a => a.status === 'Absent').length;
+    const total = present + late + absent;
+    const rate = total ? Math.round((present + late) / total * 100) : 0;
+    return { ...m, present, late, absent, rate };
+  });
+
+  const top = allStats.slice().sort((a, b) => b.present - a.present).slice(0, 5);
+  document.getElementById('topList').innerHTML = top.map((m, i) => `
+    <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)">
+      <span><strong>${i + 1}. ${m.name}</strong> <span class="pill blue">${m.voice_part}</span></span>
+      <span style="font-weight:700;color:var(--green)">${m.present} present</span>
+    </div>`).join('') || '<p style="color:var(--muted);text-align:center;padding:20px">No data yet.</p>';
+
+  renderMembers('');
+}
+
+function renderMembers(q) {
+  q = (q || '').toLowerCase();
+  const rows = allStats.filter(m => !q || m.name.toLowerCase().includes(q));
+  document.querySelector('#memTbl tbody').innerHTML = rows.map(m => `
+    <tr>
+      <td><strong>${m.name}</strong></td>
+      <td><span class="pill blue">${m.voice_part}</span></td>
+      <td style="color:var(--green);font-weight:700">${m.present}</td>
+      <td style="color:var(--amber);font-weight:700">${m.late}</td>
+      <td style="color:var(--red);font-weight:700">${m.absent}</td>
+      <td><span class="pill ${m.rate >= 80 ? 'green' : m.rate >= 60 ? 'amber' : 'red'}">${m.rate}%</span></td>
+    </tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">No data</td></tr>';
+}
+
+loadAnalytics();
+</script>
+</body></html>

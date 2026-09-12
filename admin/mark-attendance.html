@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mark Attendance — Staff Choir</title>
+  <!-- SHARED ADMIN HEAD -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../supabase-config.js"></script>
+  <script src="../cache-helper.js"></script>
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --primary-light: #dbeafe;
+      --green: #10b981;
+      --amber: #f59e0b;
+      --red: #ef4444;
+      --bg: #f8fafc;
+      --surface: #fff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --sidebar-w: 240px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: Inter, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+    }
+
+    .sidebar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: var(--sidebar-w);
+      height: 100vh;
+      background: #0f172a;
+      color: #cbd5e1;
+      display: flex;
+      flex-direction: column;
+      padding: 20px 14px;
+      z-index: 100;
+      overflow-y: auto;
+    }
+
+    .sidebar .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #fff;
+      font-weight: 700;
+      font-size: 16px;
+      padding: 0 8px 20px;
+      border-bottom: 1px solid #1e293b;
+      margin-bottom: 16px;
+    }
+
+    .sidebar .brand i {
+      font-size: 24px;
+      color: #60a5fa;
+    }
+
+    .nav-group {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: #64748b;
+      padding: 12px 10px 6px;
+      font-weight: 600;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      color: #cbd5e1;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      margin-bottom: 2px;
+      position: relative;
+      transition: .15s;
+    }
+
+    .nav-item:hover {
+      background: #1e293b;
+      color: #fff;
+    }
+
+    .nav-item.active {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    .nav-item i {
+      font-size: 18px;
+    }
+
+    .badge {
+      margin-left: auto;
+      background: var(--amber);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 10px;
+    }
+
+    .badge.today {
+      background: var(--green);
+    }
+
+    .main {
+      margin-left: var(--sidebar-w);
+      padding: 24px 28px 80px;
+      min-height: 100vh;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .topbar h1 {
+      font-size: 22px;
+      font-weight: 700;
+    }
+
+    .topbar .user {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--primary-light);
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 13px;
+    }
+
+    .btn {
+      padding: 10px 16px;
+      border-radius: 8px;
+      border: none;
+      background: var(--primary);
+      color: #fff;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: .15s;
+    }
+
+    .btn:hover {
+      background: var(--primary-dark);
+    }
+
+    .btn.ghost {
+      background: #fff;
+      color: var(--text);
+      border: 1.5px solid var(--border);
+    }
+
+    .btn.ghost:hover {
+      background: #f1f5f9;
+    }
+
+    .btn.danger {
+      background: var(--red);
+    }
+
+    .btn.success {
+      background: var(--green);
+    }
+
+    .btn.amber {
+      background: var(--amber);
+    }
+
+    .btn.sm {
+      padding: 6px 10px;
+      font-size: 12px;
+    }
+
+    .btn:disabled,
+    .btn[disabled] {
+      opacity: .55;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    .btn:disabled:hover,
+    .btn[disabled]:hover {
+      background: var(--primary);
+    }
+
+    .btn.ghost:disabled:hover,
+    .btn.ghost[disabled]:hover {
+      background: #fff;
+    }
+
+    .btn.danger:disabled:hover,
+    .btn.danger[disabled]:hover {
+      background: var(--red);
+    }
+
+    .btn.amber:disabled:hover,
+    .btn.amber[disabled]:hover {
+      background: var(--amber);
+    }
+
+    .btn.success:disabled:hover,
+    .btn.success[disabled]:hover {
+      background: var(--green);
+    }
+
+    .card {
+      background: var(--surface);
+      border-radius: 12px;
+      padding: 20px;
+      border: 1px solid var(--border);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, .03);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    th,
+    td {
+      padding: 10px 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+
+    th {
+      background: #f8fafc;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    tr:hover td {
+      background: #f8fafc;
+    }
+
+    .pill {
+      padding: 3px 9px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      display: inline-block;
+    }
+
+    .pill.green {
+      background: #d1fae5;
+      color: #065f46;
+    }
+
+    .pill.amber {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    .pill.red {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
+    .pill.blue {
+      background: var(--primary-light);
+      color: var(--primary-dark);
+    }
+
+    .pill.gray {
+      background: #f1f5f9;
+      color: #475569;
+    }
+
+    input,
+    select,
+    textarea {
+      padding: 9px 12px;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 13px;
+      background: #fff;
+      color: var(--text);
+      transition: .15s;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--primary-light);
+    }
+
+    .mobile-nav {
+      display: none;
+    }
+
+    @media(max-width:900px) {
+      .sidebar {
+        transform: translateX(-100%);
+        transition: .25s;
+      }
+
+      .sidebar.open {
+        transform: translateX(0);
+      }
+
+      .main {
+        margin-left: 0;
+        padding: 16px 14px 90px;
+      }
+
+      .mobile-nav {
+        display: flex;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: #fff;
+        border-top: 1px solid var(--border);
+        z-index: 99;
+        padding: 8px 4px;
+        justify-content: space-around;
+      }
+
+      .mobile-nav a {
+        flex: 1;
+        text-align: center;
+        color: var(--muted);
+        text-decoration: none;
+        font-size: 10px;
+        font-weight: 600;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+        padding: 6px 0;
+      }
+
+      .mobile-nav a.active {
+        color: var(--primary);
+      }
+
+      .mobile-nav a i {
+        font-size: 20px;
+      }
+
+      .hamburger {
+        display: flex !important;
+      }
+
+      table {
+        font-size: 12px;
+      }
+
+      .grid.kpis {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    .hamburger {
+      display: none;
+      background: none;
+      border: none;
+      font-size: 22px;
+      color: var(--text);
+      cursor: pointer;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    /* page-specific */
+    .controls {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: flex-end;
+    }
+
+    .controls .field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .controls label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--muted);
+      letter-spacing: .04em;
+    }
+
+    .stats-bar {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin: 18px 0;
+    }
+
+    .stat {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+      text-align: center;
+    }
+
+    .stat .n {
+      font-size: 22px;
+      font-weight: 800;
+    }
+
+    .stat .l {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    .warn {
+      background: #fef3c7;
+      border-left: 4px solid var(--amber);
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      font-size: 13px;
+      color: #92400e;
+    }
+
+    .warn a {
+      color: #92400e;
+      font-weight: 700;
+    }
+
+    .warn.lock {
+      background: #fee2e2;
+      border-left-color: var(--red);
+      color: #991b1b;
+    }
+
+    .warn.lock a {
+      color: #991b1b;
+      text-decoration: underline;
+    }
+
+    .bulk-bar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+
+    .voice-group {
+      margin-bottom: 18px;
+    }
+
+    .voice-group h4 {
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      color: var(--muted);
+      margin-bottom: 8px;
+      font-weight: 700;
+    }
+
+    .att-table {
+      background: #fff;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+
+    .att-table select:disabled {
+      background: #f1f5f9;
+      color: #94a3b8;
+      cursor: not-allowed;
+      border-color: #e2e8f0;
+    }
+
+    .att-table.locked {
+      opacity: .75;
+    }
+
+    .save-bar {
+      position: fixed;
+      bottom: 0;
+      left: var(--sidebar-w);
+      right: 0;
+      background: #fff;
+      border-top: 1px solid var(--border);
+      padding: 14px 28px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 50;
+    }
+
+    .save-bar.locked {
+      background: #fff5f5;
+      border-top-color: #fecaca;
+    }
+
+    .save-bar .lock-note {
+      font-size: 12px;
+      color: #991b1b;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+   @media(max-width:900px) {
+  .save-bar {
+    left: 0;
+    bottom: 60px;           /* lift above mobile-nav */
+    padding: 12px 14px;
+    z-index: 100;           /* above mobile-nav (z-index:99) */
+  }
+  @media(max-width:900px) {
+  .main {
+    margin-left: 0;
+    padding: 16px 14px 160px;   /* was 90px — extra room for save-bar + mobile-nav */
+  }
+}
+  .save-bar .btn {
+    flex-shrink: 0;
+  }
+  .stats-bar {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+
+      .stats-bar {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- SHARED ADMIN SHELL -->
+  <aside class="sidebar" id="sidebar">
+    <div class="brand"><i class="ti ti-music"></i> Staff Choir</div>
+    <div class="nav-group">Main</div>
+    <a class="nav-item" href="index.html"><i class="ti ti-layout-dashboard"></i> Dashboard</a>
+    <a class="nav-item" href="mark-attendance.html"><i class="ti ti-checklist"></i> Mark Attendance <span class="badge today">Today</span></a>
+    <a class="nav-item" href="reports.html"><i class="ti ti-file-analytics"></i> Reports</a>
+    <a class="nav-item" href="analytics.html"><i class="ti ti-chart-line"></i> Analytics</a>
+    <div class="nav-group">Management</div>
+    <a class="nav-item" href="apologies.html"><i class="ti ti-mail"></i> Apologies <span class="badge" id="apologyBadge">0</span></a>
+    <a class="nav-item" href="members.html"><i class="ti ti-users"></i> Members</a>
+    <a class="nav-item" href="manage-members.html"><i class="ti ti-user-cog"></i> Manage Members</a>
+    <a class="nav-item" href="executive.html"><i class="ti ti-crown"></i> Executive</a>
+    <div class="sidebar-foot">
+      <a class="nav-item" href="#" onclick="logout();return false;"><i class="ti ti-logout"></i> Logout</a>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div style="display:flex;align-items:center;gap:12px">
+        <button class="hamburger" onclick="document.getElementById('sidebar').classList.toggle('open')"><i class="ti ti-menu-2"></i></button>
+        <h1 id="pageTitle">Mark Attendance</h1>
+      </div>
+      <div class="user">
+        <div class="avatar" id="userAvatar">A</div>
+        <span id="userEmail">admin</span>
+      </div>
+    </div>
+
+    <!-- PAGE CONTENT -->
+    <div class="card">
+      <div class="controls">
+        <div class="field">
+          <label>Date</label>
+          <input type="date" id="dateInput" value="">
+        </div>
+        <div class="field">
+          <label>Session</label>
+          <select id="sessionSelect" disabled><option>Evening</option></select>
+        </div>
+        <button class="btn" id="loadBtn"><i class="ti ti-refresh"></i> Load Members</button>
+        <button class="btn amber" id="specialBtn"><i class="ti ti-calendar-plus"></i> Special Meetings</button>
+      </div>
+    </div>
+
+    <div id="warnZone" style="margin-top:16px"></div>
+
+    <div class="stats-bar" id="statsBar">
+      <div class="stat"><div class="n" id="sTotal">0</div><div class="l">Total</div></div>
+      <div class="stat"><div class="n" style="color:var(--green)" id="sPresent">0</div><div class="l">Present</div></div>
+      <div class="stat"><div class="n" style="color:var(--amber)" id="sLate">0</div><div class="l">Late</div></div>
+      <div class="stat"><div class="n" id="sUnmarked">0</div><div class="l">Unmarked</div></div>
+    </div>
+
+    <div id="attendanceZone" style="display:none">
+      <div class="bulk-bar">
+        <button class="btn success sm" onclick="bulkSet('Present')"><i class="ti ti-check"></i> All Present</button>
+        <button class="btn amber sm" onclick="bulkSet('Late')"><i class="ti ti-clock"></i> All Late</button>
+        <button class="btn ghost sm" onclick="bulkSet('')"><i class="ti ti-eraser"></i> Clear All</button>
+      </div>
+      <div id="tableArea"></div>
+    </div>
+
+    <div class="save-bar" id="saveBar" style="display:none">
+      <div style="font-size:13px;color:var(--muted)"><span id="saveProgress">0</span> of <span id="saveTotal">0</span> marked</div>
+      <button class="btn" id="saveBtn"><i class="ti ti-device-floppy"></i> Save Attendance</button>
+    </div>
+
+    <!-- Special Meetings Modal -->
+    <div id="specialModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:center;justify-content:center;padding:20px">
+      <div style="background:#fff;border-radius:14px;padding:24px;max-width:520px;width:100%;max-height:90vh;overflow-y:auto">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+          <h3 style="font-size:17px">Special Meetings</h3>
+          <button onclick="closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted)">&times;</button>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+          <input type="date" id="specialDate" style="flex:1">
+          <input type="text" id="specialReason" placeholder="Reason (optional)" style="flex:1">
+          <button class="btn" onclick="addSpecial()">Add</button>
+        </div>
+        <div id="specialList"></div>
+      </div>
+    </div>
+  </main>
+
+  <nav class="mobile-nav">
+    <a href="index.html"><i class="ti ti-layout-dashboard"></i>Home</a>
+    <a href="mark-attendance.html"><i class="ti ti-checklist"></i>Mark</a>
+    <a href="reports.html"><i class="ti ti-file-analytics"></i>Reports</a>
+    <a href="analytics.html"><i class="ti ti-chart-line"></i>Analytics</a>
+  </nav>
+
+  <script>
+    // Shared shell init
+    document.querySelectorAll('.nav-item, .mobile-nav a').forEach(a => {
+      if (a.getAttribute('href') === location.pathname.split('/').pop()) a.classList.add('active');
+    });
+
+    (async () => {
+      const session = await requireAuth("admin");
+      if (!session) return;
+      document.getElementById('userEmail').textContent = session.user.email;
+      document.getElementById('userAvatar').textContent = initials(session.user.email.split('@')[0]);
+      const { count } = await sb.from('apology_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending');
+      const b = document.getElementById('apologyBadge');
+      if (b) { b.textContent = count || 0; if (!count) b.style.display = 'none'; }
+    })();
+
+    // Page logic
+    let members = [];
+    let currentMap = {};
+    let saveLocked = false;
+    let lockReason = '';
+
+    document.getElementById('dateInput').value = todayISO();
+
+    async function loadMembers() {
+      const date = document.getElementById('dateInput').value;
+      if (!date) return toast('Please choose a date', 'error');
+
+      // Any day is valid now — just show a friendly info banner for special meetings
+      const isSpecial = await isSpecialMeeting(date);
+      let infoBanner = '';
+      if (isSpecial) {
+        infoBanner = `<div class="warn" style="background:#e0f2fe;border-left-color:#0284c7;color:#075985">
+          <i class="ti ti-calendar-star"></i> This is a <strong>special meeting</strong> — attendance counts normally.
+        </div>`;
+      }
+
+      // Check pending apologies — these LOCK saving until resolved
+      const { data: pendings } = await sb.from('apology_requests')
+        .select('*').eq('date', date).eq('status', 'pending');
+
+      saveLocked = !!(pendings && pendings.length);
+      lockReason = saveLocked
+        ? `${pendings.length} pending apolog${pendings.length === 1 ? 'y' : 'ies'} must be reviewed first`
+        : '';
+
+      if (saveLocked) {
+        infoBanner = `<div class="warn lock">
+          <i class="ti ti-lock"></i> <strong>Attendance is locked.</strong>
+          There ${pendings.length === 1 ? 'is' : 'are'} <strong>${pendings.length}</strong> pending apolog${pendings.length === 1 ? 'y' : 'ies'} for this session.
+          <a href="apologies.html">Review &amp; resolve them</a> to unlock marking.
+        </div>`;
+      }
+      document.getElementById('warnZone').innerHTML = infoBanner;
+
+    const { data: mems, error } = await sb.from('members').select('*')
+  .eq('status', 'active').order('voice_part').order('name');
+if (error) return toast(error.message, 'error');
+
+// Exclude the admin from the attendance list
+const adminEmail = document.getElementById('userEmail').textContent?.toLowerCase() || '';
+const adminName  = document.getElementById('userAvatar').dataset.name?.toLowerCase() || '';
+members = (mems || []).filter(m => {
+  const email = (m.email || '').toLowerCase();
+  const name  = (m.name  || '').toLowerCase();
+  const role  = (m.role  || '').toLowerCase();
+  if (role === 'admin') return false;
+  if (email && adminEmail && email === adminEmail) return false;
+  if (name && adminName && name === adminName) return false;
+  return true;
+});
+
+      const { data: existing } = await sb.from('attendance').select('*').eq('date', date).eq('session', 'Evening');
+      currentMap = {};
+      (existing || []).forEach(r => { currentMap[r.member_id] = { status: r.status, apology: r.apology_approved }; });
+
+      const { data: approved } = await sb.from('apology_requests')
+        .select('*').eq('date', date).eq('status', 'approved');
+      (approved || []).forEach(a => {
+        if (!currentMap[a.member_id]) currentMap[a.member_id] = { status: a.apology_type === 'late' ? 'Late' : 'Absent', apology: true };
+        else currentMap[a.member_id].apology = true;
+      });
+
+      renderTable();
+      document.getElementById('attendanceZone').style.display = 'block';
+      document.getElementById('saveBar').style.display = 'flex';
+      updateStats();
+    }
+
+    function renderTable() {
+      const parts = ['Soprano', 'Alto', 'Tenor', 'Bass'];
+      const html = parts.map(p => {
+        const list = members.filter(m => m.voice_part === p);
+        if (!list.length) return '';
+        return `
+          <div class="voice-group">
+            <h4>${p} (${list.length})</h4>
+            <div class="att-table${saveLocked ? ' locked' : ''}">
+              <table>
+                <thead><tr><th>Name</th><th>Department</th><th>Status</th><th>Apology</th></tr></thead>
+                <tbody>
+                  ${list.map(m => {
+                    const cur = currentMap[m.member_id] || {};
+                    return `<tr>
+                      <td><strong>${m.name}</strong><br><span style="font-size:11px;color:var(--muted)">${m.member_id}</span></td>
+                      <td style="font-size:12px;color:var(--muted)">${m.department || '—'}</td>
+                      <td>
+                        <select data-mid="${m.member_id}" onchange="setStatus(this)" ${saveLocked ? 'disabled' : ''}>
+                          <option value="" ${!cur.status ? 'selected' : ''}>—</option>
+                          <option value="Present" ${cur.status === 'Present' ? 'selected' : ''}>Present</option>
+                          <option value="Late" ${cur.status === 'Late' ? 'selected' : ''}>Late</option>
+                          <option value="Absent" ${cur.status === 'Absent' ? 'selected' : ''}>Absent</option>
+                        </select>
+                      </td>
+                      <td>${cur.apology ? '<span class="pill green"><i class="ti ti-check"></i> Approved</span>' : '<span class="pill gray">None</span>'}</td>
+                    </tr>`;
+                  }).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>`;
+      }).join('');
+      document.getElementById('tableArea').innerHTML = html || '<p style="color:var(--muted)">No active members.</p>';
+    }
+
+    function setStatus(sel) {
+      if (saveLocked) {
+        toast(lockReason, 'error');
+        const mid = sel.dataset.mid;
+        sel.value = currentMap[mid]?.status || '';
+        return;
+      }
+      const mid = sel.dataset.mid;
+      const val = sel.value;
+      currentMap[mid] = { ...(currentMap[mid] || {}), status: val };
+      updateStats();
+    }
+
+    function bulkSet(status) {
+      if (saveLocked) return toast(lockReason, 'error');
+      members.forEach(m => { currentMap[m.member_id] = { ...(currentMap[m.member_id] || {}), status }; });
+      renderTable();
+      updateStats();
+    }
+
+    function updateStats() {
+      const total = members.length;
+      let present = 0, late = 0, unmarked = 0;
+      members.forEach(m => {
+        const s = currentMap[m.member_id]?.status;
+        if (s === 'Present') present++;
+        else if (s === 'Late') late++;
+        else if (!s) unmarked++;
+      });
+      document.getElementById('sTotal').textContent = total;
+      document.getElementById('sPresent').textContent = present;
+      document.getElementById('sLate').textContent = late;
+      document.getElementById('sUnmarked').textContent = unmarked;
+      document.getElementById('saveProgress').textContent = total - unmarked;
+      document.getElementById('saveTotal').textContent = total;
+
+      // Reflect lock state on the Save button and bar
+      const saveBtn = document.getElementById('saveBtn');
+      const saveBar = document.getElementById('saveBar');
+      if (saveBtn) {
+        if (saveLocked) {
+          saveBtn.disabled = true;
+          saveBtn.innerHTML = '<i class="ti ti-lock"></i> Locked — resolve apologies';
+          saveBtn.title = lockReason;
+          saveBar.classList.add('locked');
+        } else {
+          saveBtn.disabled = false;
+          saveBtn.innerHTML = '<i class="ti ti-device-floppy"></i> Save Attendance';
+          saveBtn.title = '';
+          saveBar.classList.remove('locked');
+        }
+      }
+
+      // Disable bulk-action buttons when locked
+      document.querySelectorAll('.bulk-bar .btn').forEach(b => {
+        b.disabled = saveLocked;
+        b.title = saveLocked ? lockReason : '';
+      });
+    }
+
+    document.getElementById('loadBtn').addEventListener('click', loadMembers);
+
+    document.getElementById('saveBtn').addEventListener('click', async () => {
+      const date = document.getElementById('dateInput').value;
+
+      // Re-check pending apologies server-side right before saving (race-condition safety)
+      const { data: pendings } = await sb.from('apology_requests')
+        .select('id').eq('date', date).eq('status', 'pending');
+      if (pendings && pendings.length) {
+        saveLocked = true;
+        lockReason = `${pendings.length} pending apolog${pendings.length === 1 ? 'y' : 'ies'} must be reviewed first`;
+        updateStats();
+        return toast(lockReason, 'error');
+      }
+
+      const records = Object.entries(currentMap)
+        .filter(([_, v]) => v.status)
+        .map(([mid, v]) => ({
+          member_id: mid, date, session: 'Evening', status: v.status,
+          has_apology: !!v.apology, apology_approved: !!v.apology
+        }));
+      if (!records.length) return toast('No attendance to save', 'error');
+
+      // Delete existing records for that date/session then insert new ones
+      await sb.from('attendance').delete().eq('date', date).eq('session', 'Evening');
+      const { error } = await sb.from('attendance').insert(records);
+      if (error) return toast(error.message, 'error');
+      toast(`Saved ${records.length} records ✓`, 'success');
+    });
+
+    document.getElementById('specialBtn').addEventListener('click', async () => {
+      document.getElementById('specialModal').style.display = 'flex';
+      loadSpecialList();
+    });
+
+    function closeModal() { document.getElementById('specialModal').style.display = 'none'; }
+
+    async function loadSpecialList() {
+      const { data } = await sb.from('special_meetings').select('*').order('meeting_date', { ascending: false });
+      document.getElementById('specialList').innerHTML = (data || []).map(m => `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px">
+          <div><strong>${fmtDate(m.meeting_date)}</strong> — ${m.reason || 'Special meeting'}</div>
+          <button class="btn danger sm" onclick="deleteSpecial(${m.id})"><i class="ti ti-trash"></i></button>
+        </div>`).join('') || '<p style="color:var(--muted);font-size:13px">No special meetings.</p>';
+    }
+
+    async function addSpecial() {
+      const d = document.getElementById('specialDate').value;
+      const r = document.getElementById('specialReason').value.trim();
+      if (!d) return toast('Choose a date', 'error');
+      const { error } = await sb.from('special_meetings').insert({ meeting_date: d, reason: r || 'Special meeting', created_by: 'admin' });
+      if (error) return toast(error.message, 'error');
+      toast('Special meeting added', 'success');
+      document.getElementById('specialDate').value = '';
+      document.getElementById('specialReason').value = '';
+      loadSpecialList();
+    }
+
+    async function deleteSpecial(id) {
+      if (!confirm('Remove this special meeting?')) return;
+      await sb.from('special_meetings').delete().eq('id', id);
+      loadSpecialList();
+    }
+
+    // ---------- UTILITY FUNCTIONS (must be available) ----------
+    function todayISO() {
+      const d = new Date();
+      return d.toISOString().split('T')[0];
+    }
+
+    function initials(name) {
+      if (!name) return '?';
+      return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+    }
+
+    async function isSpecialMeeting(date) {
+      const { data, error } = await sb.from('special_meetings').select('id').eq('meeting_date', date);
+      if (error) return false;
+      return data && data.length > 0;
+    }
+
+    function toast(message, type = 'info') {
+      // Simple toast implementation – replace with your own if needed
+      alert(message); // Fallback, but you can replace with a proper toast UI.
+      console.log(`[${type}] ${message}`);
+    }
+
+    function fmtDate(dateStr) {
+      if (!dateStr) return '';
+      const d = new Date(dateStr);
+      return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    }
+
+    // Expose functions to global scope for inline handlers
+    window.bulkSet = bulkSet;
+    window.setStatus = setStatus;
+    window.closeModal = closeModal;
+    window.addSpecial = addSpecial;
+    window.deleteSpecial = deleteSpecial;
+  </script>
+</body>
+</html>

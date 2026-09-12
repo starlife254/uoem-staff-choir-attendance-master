@@ -20,6 +20,30 @@ body{font-family:Inter,sans-serif;background:linear-gradient(135deg,#f8fafc 0%,#
 .sidebar{position:fixed;top:0;left:0;width:var(--sidebar-w);height:100vh;background:linear-gradient(180deg,#0f172a 0%,#111c33 100%);color:#cbd5e1;display:flex;flex-direction:column;padding:20px 14px;z-index:100;overflow-y:auto}
 .sidebar .brand{display:flex;align-items:center;gap:10px;color:#fff;font-weight:700;font-size:16px;padding:0 8px 20px;border-bottom:1px solid #1e293b;margin-bottom:16px}
 .sidebar .brand i{font-size:24px;color:#60a5fa}
+.sidebar-foot{
+  margin-top:auto;
+  padding-top:16px;
+  border-top:1px solid #1e293b;
+  position:sticky;
+  bottom:0;
+  background:#0f172a;
+  padding-bottom:10px;
+}
+.sidebar-overlay{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(15,23,42,.55);
+  z-index:99;
+  opacity:0;
+  transition:opacity .2s ease;
+}
+.sidebar-overlay.show{display:block;opacity:1}
+@media(min-width:901px){
+  .sidebar-overlay{display:none!important}
+  body.sidebar-locked{overflow:auto}
+}
+body.sidebar-locked{overflow:hidden}
 .nav-group{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#64748b;padding:12px 10px 6px;font-weight:600}
 .nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;color:#cbd5e1;text-decoration:none;font-size:14px;font-weight:500;margin-bottom:2px;position:relative;transition:.15s}
 .nav-item:hover{background:#1e293b;color:#fff}
@@ -104,10 +128,12 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--primary)
   </div>
 </aside>
 
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
 <main class="main">
   <div class="topbar">
     <div style="display:flex;align-items:center;gap:12px">
-      <button class="hamburger" onclick="document.getElementById('sidebar').classList.toggle('open')"><i class="ti ti-menu-2"></i></button>
+      <button class="hamburger" onclick="openSidebar()"><i class="ti ti-menu-2"></i></button>
       <h1 id="pageTitle">Apologies</h1>
     </div>
     <div class="user">
@@ -153,10 +179,31 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--primary)
 </nav>
 
 <script>
-// Shared shell init
+// ---------- Mobile sidebar ----------
+function openSidebar() {
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('sidebarOverlay').classList.add('show');
+  document.body.classList.add('sidebar-locked');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebarOverlay').classList.remove('show');
+  document.body.classList.remove('sidebar-locked');
+}
+
 document.querySelectorAll('.nav-item, .mobile-nav a').forEach(a => {
   if (a.getAttribute('href') === location.pathname.split('/').pop()) a.classList.add('active');
+  a.addEventListener('click', () => {
+    const href = a.getAttribute('href');
+    if (href && href !== '#') closeSidebar();
+  });
 });
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeSidebar();
+});
+
+// Session + user info
 (async () => {
   const session = await requireAuth("admin");
   if (!session) return;

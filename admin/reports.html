@@ -22,12 +22,35 @@ body{font-family:Inter,sans-serif;background:var(--bg);color:var(--text);font-si
 .sidebar{position:fixed;top:0;left:0;width:var(--sidebar-w);height:100vh;background:#0f172a;color:#cbd5e1;display:flex;flex-direction:column;padding:20px 14px;z-index:100;overflow-y:auto}
 .sidebar .brand{display:flex;align-items:center;gap:10px;color:#fff;font-weight:700;font-size:16px;padding:0 8px 20px;border-bottom:1px solid #1e293b;margin-bottom:16px}
 .sidebar .brand i{font-size:24px;color:#60a5fa}
+.sidebar-foot{
+  margin-top:auto;
+  padding-top:16px;
+  border-top:1px solid #1e293b;
+  position:sticky;
+  bottom:0;
+  background:#0f172a;
+  padding-bottom:10px;
+}
+.sidebar-overlay{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(15,23,42,.55);
+  z-index:99;
+  opacity:0;
+  transition:opacity .2s ease;
+}
+.sidebar-overlay.show{display:block;opacity:1}
+@media(min-width:901px){
+  .sidebar-overlay{display:none!important}
+  body.sidebar-locked{overflow:auto}
+}
+body.sidebar-locked{overflow:hidden}
 .nav-group{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#64748b;padding:12px 10px 6px;font-weight:600}
 .nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;color:#cbd5e1;text-decoration:none;font-size:14px;font-weight:500;margin-bottom:2px;position:relative;transition:.15s}
 .nav-item:hover{background:#1e293b;color:#fff}
 .nav-item.active{background:var(--primary);color:#fff}
 .nav-item i{font-size:18px}
-
 .badge{margin-left:auto;background:var(--amber);color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px}
 .badge.today{background:var(--green)}
 .main{margin-left:var(--sidebar-w);padding:24px 28px 80px;min-height:100vh}
@@ -111,15 +134,17 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--primary)
   <a class="nav-item" href="members.html"><i class="ti ti-users"></i> Members</a>
   <a class="nav-item" href="manage-members.html"><i class="ti ti-user-cog"></i> Manage Members</a>
   <a class="nav-item" href="executive.html"><i class="ti ti-crown"></i> Executive</a>
-    <div class="sidebar-foot">
+  <div class="sidebar-foot">
     <a class="nav-item" href="#" onclick="logout();return false;"><i class="ti ti-logout"></i> Logout</a>
   </div>
 </aside>
 
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
 <main class="main">
   <div class="topbar">
     <div style="display:flex;align-items:center;gap:12px">
-      <button class="hamburger" onclick="document.getElementById('sidebar').classList.toggle('open')"><i class="ti ti-menu-2"></i></button>
+      <button class="hamburger" onclick="openSidebar()"><i class="ti ti-menu-2"></i></button>
       <h1 id="pageTitle">Reports</h1>
     </div>
     <div class="user">
@@ -187,10 +212,31 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--primary)
 </nav>
 
 <script>
-// Shared shell init
+// ---------- Mobile sidebar ----------
+function openSidebar() {
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('sidebarOverlay').classList.add('show');
+  document.body.classList.add('sidebar-locked');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebarOverlay').classList.remove('show');
+  document.body.classList.remove('sidebar-locked');
+}
+
 document.querySelectorAll('.nav-item, .mobile-nav a').forEach(a => {
   if (a.getAttribute('href') === location.pathname.split('/').pop()) a.classList.add('active');
+  a.addEventListener('click', () => {
+    const href = a.getAttribute('href');
+    if (href && href !== '#') closeSidebar();
+  });
 });
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeSidebar();
+});
+
+// Session + user info
 (async () => {
   const session = await requireAuth("admin");
   if (!session) return;
@@ -212,7 +258,6 @@ function switchTab(name, el) {
 }
 document.getElementById('dailyDate').value = todayISO();
 document.getElementById('weekStart').value = todayISO();
-// Default the % range to current year
 document.getElementById('pctFrom').value = new Date(new Date().getFullYear(), 0, 1).toISOString().slice(0, 10);
 document.getElementById('pctTo').value = todayISO();
 
@@ -369,7 +414,6 @@ async function genAttendancePct() {
   if (!from || !to) return toast('Pick both dates', 'error');
   if (from > to)    return toast('"From" must be before "To"', 'error');
 
-  // Fetch all attendance in range + active members
   const { data: att, error: aErr } = await sb.from('attendance')
     .select('*').gte('date', from).lte('date', to);
   if (aErr) return toast(aErr.message, 'error');
@@ -378,17 +422,15 @@ async function genAttendancePct() {
     .select('*').eq('status', 'active');
   if (mErr) return toast(mErr.message, 'error');
 
-  // Count the total distinct sessions (dates) that have ANY attendance record
   const sessionDates = [...new Set((att || []).map(a => a.date))];
   const totalSessions = sessionDates.length;
 
-  // Build per-member stats
   const stats = {};
   (mems || []).forEach(m => {
     stats[m.member_id] = { member: m, present: 0, late: 0, absent: 0, total: 0 };
   });
   (att || []).forEach(a => {
-    if (!stats[a.member_id]) return; // skip inactive / removed members
+    if (!stats[a.member_id]) return;
     const s = stats[a.member_id];
     if (a.status === 'Present') s.present++;
     else if (a.status === 'Late') s.late++;
@@ -396,14 +438,12 @@ async function genAttendancePct() {
     s.total++;
   });
 
-  // Compute percentage = (present + late) / totalSessions
   const list = Object.values(stats).map(s => {
     const attended = s.present + s.late;
     const pct = totalSessions ? Math.round((attended / totalSessions) * 1000) / 10 : 0;
     return { ...s, attended, pct };
   });
 
-  // Group by voice part
   const voiceParts = ['Soprano', 'Alto', 'Tenor', 'Bass'];
   const grouped = {};
   voiceParts.forEach(v => grouped[v] = []);
@@ -412,12 +452,10 @@ async function genAttendancePct() {
     if (!grouped[v]) grouped[v] = [];
     grouped[v].push(s);
   });
-  // Sort each group highest → lowest % (then by name)
   Object.values(grouped).forEach(arr => arr.sort((a, b) =>
     b.pct - a.pct || a.member.name.localeCompare(b.member.name)
   ));
 
-  // Overall KPIs
   const overallAvg = list.length
     ? Math.round(list.reduce((s, x) => s + x.pct, 0) / list.length * 10) / 10
     : 0;
@@ -514,7 +552,6 @@ function exportPctPDF() {
   const pageW = doc.internal.pageSize.getWidth();
   const d = pctData;
 
-  // ===== Header =====
   doc.setFillColor(37, 99, 235);
   doc.rect(0, 0, pageW, 24, 'F');
   doc.setTextColor(255, 255, 255);
@@ -528,7 +565,6 @@ function exportPctPDF() {
   doc.text(`Period: ${fmtDate(d.from)}  →  ${fmtDate(d.to)}`, 14, 32);
   doc.text(`Sessions held: ${d.totalSessions}   |   Members: ${d.totalMembers}   |   Overall average: ${d.overallAvg}%`, 14, 38);
 
-  // ===== KPI strip =====
   const kpiY = 46;
   const kpiW = (pageW - 28 - 12) / 4;
   const kpis = [
@@ -554,11 +590,9 @@ function exportPctPDF() {
 
   let y = kpiY + 26;
 
-  // ===== One table per voice part =====
   const voiceParts = d.voiceParts.filter(v => (d.grouped[v] || []).length);
 
-  voiceParts.forEach((v, idx) => {
-    // Section header
+  voiceParts.forEach((v) => {
     if (y > 240) { doc.addPage(); y = 20; }
     doc.setFillColor(37, 99, 235);
     doc.rect(14, y, pageW - 28, 8, 'F');
@@ -587,13 +621,7 @@ function exportPctPDF() {
       body: rows,
       theme: 'grid',
       styles: { fontSize: 8.5, cellPadding: 2, textColor: [15, 23, 42] },
-      headStyles: {
-        fillColor: [241, 245, 249],
-        textColor: [100, 116, 139],
-        fontStyle: 'bold',
-        fontSize: 8,
-        halign: 'center',
-      },
+      headStyles: { fillColor: [241, 245, 249], textColor: [100, 116, 139], fontStyle: 'bold', fontSize: 8, halign: 'center' },
       columnStyles: {
         0: { halign: 'center', cellWidth: 10, textColor: [100, 116, 139], fontStyle: 'bold' },
         1: { cellWidth: 45, fontStyle: 'bold' },
@@ -607,7 +635,6 @@ function exportPctPDF() {
       alternateRowStyles: { fillColor: [250, 251, 252] },
       margin: { left: 14, right: 14 },
       didParseCell: (data) => {
-        // Colour the % cell based on value
         if (data.section === 'body' && data.column.index === 7) {
           const pct = parseFloat(String(data.cell.raw).replace('%', ''));
           if (pct >= 85) data.cell.styles.textColor = [16, 185, 129];
@@ -621,7 +648,6 @@ function exportPctPDF() {
     y = doc.lastAutoTable.finalY + 12;
   });
 
-  // ===== Footer note on last page =====
   const pageCount = doc.internal.getNumberOfPages();
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);

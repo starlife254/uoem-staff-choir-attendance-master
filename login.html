@@ -1,30 +1,52 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
+<head> <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>𝄞</text></svg>">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Staff Choir — Login</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
 <style>
 :root{
   --primary:#2563eb;--primary-dark:#1d4ed8;--primary-light:#dbeafe;
-  --surface:#fff;--text:#0f172a;--muted:#64748b;
+  --bg:#f8fafc;--surface:#fff;--text:#0f172a;--muted:#64748b;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{
   font-family:Inter,sans-serif;background:linear-gradient(135deg,#1e3a8a 0%,#2563eb 50%,#3b82f6 100%);
-  min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;flex-direction:column;
+  min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;
+  flex-direction:column;
 }
-.card{background:var(--surface);width:100%;max-width:420px;border-radius:20px;padding:40px 32px 32px;box-shadow:0 25px 50px rgba(0,0,0,.25)}
-.logo{width:64px;height:64px;display:flex;align-items:center;justify-content:center;margin:0 auto 20px}
-.logo img{width:100%;height:100%;object-fit:contain;display:block}
+.card{
+  background:var(--surface);width:100%;max-width:420px;border-radius:20px;
+  padding:40px 32px 32px;box-shadow:0 25px 50px rgba(0,0,0,.25);
+}
+.logo{
+  width:64px;height:64px;
+  display:flex;align-items:center;justify-content:center;
+  margin:0 auto 20px;
+}
+.logo img{
+  width:100%;
+  height:100%;
+  object-fit:contain;
+  display:block;
+}
 h1{font-size:22px;text-align:center;color:var(--text);margin-bottom:6px}
 .sub{text-align:center;color:var(--muted);font-size:14px;margin-bottom:28px}
 label{display:block;font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px}
-input{width:100%;padding:12px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:14px;font-family:inherit;transition:.2s;margin-bottom:16px}
+input{
+  width:100%;padding:12px 14px;border:1.5px solid #e2e8f0;border-radius:10px;
+  font-size:14px;font-family:inherit;transition:.2s;margin-bottom:16px;
+}
 input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-light)}
-button{width:100%;padding:13px;background:var(--primary);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;transition:.2s;font-family:inherit}
+button{
+  width:100%;padding:13px;background:var(--primary);color:#fff;border:none;
+  border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;transition:.2s;
+  font-family:inherit;
+}
 button:hover{background:var(--primary-dark)}
 button:disabled{opacity:.6;cursor:not-allowed}
 .msg{padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:16px;display:none}
@@ -32,7 +54,16 @@ button:disabled{opacity:.6;cursor:not-allowed}
 .msg.ok{background:#d1fae5;color:#065f46;display:block}
 .foot{text-align:center;font-size:13px;color:var(--muted);margin-top:20px}
 .foot a{color:var(--primary);text-decoration:none;font-weight:600}
-.page-credit{margin-top:18px;text-align:center;font-size:12.5px;color:rgba(255,255,255,.85);font-weight:500}
+.foot a:hover{text-decoration:underline}
+
+.page-credit{
+  margin-top:18px;
+  text-align:center;
+  font-size:12.5px;
+  color:rgba(255,255,255,.85);
+  font-weight:500;
+  letter-spacing:.2px;
+}
 .page-credit strong{color:#fff;font-weight:700}
 .page-credit i{font-size:14px;vertical-align:-2px;margin-right:3px}
 </style>
@@ -55,50 +86,34 @@ button:disabled{opacity:.6;cursor:not-allowed}
   <i class="ti ti-bolt"></i> Powered by <strong>UoEM StarLife</strong>
 </p>
 
-<!-- 1. Supabase CDN — MUST come first -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-<!-- 2. Your config — defines sb -->
-<script src="supabase-config.js"></script>
-
-<!-- 3. Page logic — runs after both above are ready -->
 <script>
 const $ = s => document.querySelector(s);
 const msg = $("#msg");
 function show(text, cls="err"){ msg.textContent = text; msg.className = "msg " + cls; }
 
-// Wait for the DOM to be ready (belt & braces)
-window.addEventListener("DOMContentLoaded", () => {
-  // Sanity check
-  if (typeof sb === "undefined") {
-    show("Could not connect to the server. Please refresh the page.");
-    console.error("sb is undefined — check that supabase-config.js loaded correctly.");
-    return;
+$("#loginForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const email = $("#email").value.trim();
+  const password = $("#password").value;
+  const btn = $("#btn");
+  btn.disabled = true; btn.textContent = "Signing in…";
+  msg.className = "msg";
+  try {
+    const { data, error } = await sb.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+
+    // Role-based routing
+    const { data: roleRow } = await sb.from("user_roles").select("role").eq("email", email).maybeSingle();
+    const role = roleRow?.role || "member";
+    show("Success! Redirecting…", "ok");
+    setTimeout(() => {
+      location.href = role === "admin" ? "admin/index.html" : "member/dashboard.html";
+    }, 500);
+  } catch (err) {
+    show(err.message || "Login failed");
+  } finally {
+    btn.disabled = false; btn.textContent = "Sign In";
   }
-
-  $("#loginForm").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const email = $("#email").value.trim();
-    const password = $("#password").value;
-    const btn = $("#btn");
-    btn.disabled = true; btn.textContent = "Signing in…";
-    msg.className = "msg";
-    try {
-      const { data, error } = await sb.auth.signInWithPassword({ email, password });
-      if (error) throw error;
-
-      const { data: roleRow } = await sb.from("user_roles").select("role").eq("email", email).maybeSingle();
-      const role = roleRow?.role || "member";
-      show("Success! Redirecting…", "ok");
-      setTimeout(() => {
-        location.href = role === "admin" ? "admin/index.html" : "member/dashboard.html";
-      }, 500);
-    } catch (err) {
-      show(err.message || "Login failed");
-    } finally {
-      btn.disabled = false; btn.textContent = "Sign In";
-    }
-  });
 });
 </script>
 </body>

@@ -231,8 +231,9 @@ async function loadAnalytics() {
     days.push(d.toISOString().slice(0, 10));
   }
   const { data: att } = await sb.from('attendance').select('*').in('date', days);
-  const { data: mems } = await sb.from('members').select('*').eq('status', 'active');
-  const allMems = mems || [];
+ const { data: mems } = await sb.from('members').select('*')
+  .eq('status', 'active')
+  .neq('role', 'admin'); const allMems = mems || [];
 
   const byDate = days.map(d => {
     const dayAtt = (att || []).filter(a => a.date === d);

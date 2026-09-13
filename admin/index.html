@@ -232,8 +232,11 @@ async function loadDashboard() {
   const today = todayISO();
   document.getElementById('todayLabel').textContent = fmtDate(today) + " (" + dayName(today) + ")";
 
-  const [membersRes, attendanceRes] = await Promise.all([
-    sb.from('members').select('*', { count: 'exact', head: true }).eq('status', 'active'),
+   const [membersRes, attendanceRes] = await Promise.all([
+    sb.from('members')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'active')
+      .neq('role', 'admin'),
     sb.from('attendance').select('status').eq('date', today)
   ]);
   const total = membersRes.count || 0;

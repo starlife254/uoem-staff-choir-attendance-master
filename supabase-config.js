@@ -4,7 +4,7 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
 // Service-role key — used ONLY by admin/manage-members.html for password resets.
 // Get it from Supabase → Settings → API → Project API keys → service_role
-const SERVICE_ROLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9ja2t2cW1vY2NhcHV0cXphZ3dvIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6...";
+const SERVICE_ROLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9ja2t2cW1vY2NhcHV0cXphZ3dvIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4OTExODk1OCwiZXhwIjoyMTA0Njk0OTU4fQ.6hoqmOCn1U_6cl29SaHGZ2QHBjgTdQpL_dhaHO1NuSk";
 // Supabase v2 UMD is loaded via CDN before this file.
 const { createClient } = supabase;
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {

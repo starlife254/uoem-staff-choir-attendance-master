@@ -2,11 +2,20 @@
 const SUPABASE_URL = "https://ockkvqmoccaputqzagwo.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9ja2t2cW1vY2NhcHV0cXphZ3dvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkxMTg5NTgsImV4cCI6MjEwNDY5NDk1OH0.jWZ5lVnrJo3LN_VdhcUT6zZ2CccycSW7XYHMWM2qd3Q";
 
+// Service-role key — used ONLY by admin/manage-members.html for password resets.
+// Get it from Supabase → Settings → API → Project API keys → service_role
+const SERVICE_ROLE_KEY = "PASTE_YOUR_SERVICE_ROLE_KEY_HERE";
+
 // Supabase v2 UMD is loaded via CDN before this file.
 const { createClient } = supabase;
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: { persistSession: true, autoRefreshToken: true }
 });
+
+// Expose globals so pages can access them
+window.SUPABASE_URL = SUPABASE_URL;
+window.SUPABASE_ANON_KEY = SUPABASE_ANON_KEY;
+window.SERVICE_ROLE_KEY = SERVICE_ROLE_KEY;
 
 // ---------- Session helpers ----------
 async function currentSession() {
@@ -49,16 +58,6 @@ const SESSION_CONFIG = {
   }
 };
 
-function dayName(d) { return new Date(d).toLocaleDateString("en-US", { weekday: "long" }); }
-function fmtDate(d) {
-  const dt = new Date(d);
-  const dd = String(dt.getDate()).padStart(2, "0");
-  const mm = String(dt.getMonth() + 1).padStart(2, "0");
-  const yyyy = dt.getFullYear();
-  return `${dd}/${mm}/${yyyy}`;
-}
-function todayISO() { return new Date().toISOString().slice(0, 10); }
-
 // Any day is a valid session day now
 function isRegularDay(_d) { return true; }
 
@@ -86,7 +85,7 @@ function toast(msg, type = "info") {
   setTimeout(() => { t.style.opacity = "0"; setTimeout(() => t.remove(), 300); }, 2600);
 }
 
-// Shared helpers
+// ---------- Shared helpers ----------
 function initials(name = "") {
   return name.split(" ").map(s => s[0]).filter(Boolean).slice(0, 2).join("").toUpperCase();
 }
@@ -102,6 +101,7 @@ function todayISO() { return new Date().toISOString().slice(0, 10); }
 function dayName(dateStr) {
   return new Date(dateStr + "T00:00:00").toLocaleDateString("en-GB", { weekday: "long" });
 }
+
 window.initials = initials;
 window.fmtDate = fmtDate;
 window.todayISO = todayISO;

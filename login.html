@@ -79,7 +79,7 @@ button:disabled{opacity:.6;cursor:not-allowed}
   <label>Password</label>
   <input type="password" id="password" required placeholder="••••••••" autocomplete="current-password">
   <button type="submit" id="btn">Sign In</button>
-  <p class="foot">New member? <a href="member/register.html">Register</a> · <a href="member/reset-password.html">Reset password</a></p>
+ <p class="foot">New member? <a href="member/register.html">Register</a></p>
 </form>
 
 <p class="page-credit">
@@ -99,12 +99,29 @@ $("#loginForm").addEventListener("submit", async (e) => {
   btn.disabled = true; btn.textContent = "Signing in…";
   msg.className = "msg";
   try {
-    const { data, error } = await sb.auth.signInWithPassword({ email, password });
+       const { data, error } = await sb.auth.signInWithPassword({ email, password });
     if (error) throw error;
 
     // Role-based routing
     const { data: roleRow } = await sb.from("user_roles").select("role").eq("email", email).maybeSingle();
     const role = roleRow?.role || "member";
+
+    // If member, check whether they must change their password first
+    if (role === "member") {
+      const { data: m } = await sb.from("members")
+        .select("member_id, must_change_password")
+        .eq("email", email)
+        .maybeSingle();
+
+      if (m?.must_change_password) {
+        show("Please set a new password…", "ok");
+        setTimeout(() => {
+          location.href = "member/change-password.html";
+        }, 500);
+        return;
+      }
+    }
+
     show("Success! Redirecting…", "ok");
     setTimeout(() => {
       location.href = role === "admin" ? "admin/index.html" : "member/dashboard.html";

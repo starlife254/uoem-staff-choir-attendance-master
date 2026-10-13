@@ -115,6 +115,8 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--primary)
   <a class="nav-item" href="apologies.html"><i class="ti ti-mail"></i> Apologies <span class="badge" id="apologyBadge">0</span></a>
   <a class="nav-item" href="members.html"><i class="ti ti-users"></i> Members</a>
   <a class="nav-item" href="manage-members.html"><i class="ti ti-user-cog"></i> Manage Members</a>
+  
+  <a class="nav-item" href="download-members.html"><i class="ti ti-download"></i> Download List</a>
   <a class="nav-item" href="executive.html"><i class="ti ti-crown"></i> Executive</a>
   <div class="sidebar-foot">
     <a class="nav-item" href="#" onclick="logout();return false;"><i class="ti ti-logout"></i> Logout</a>
@@ -147,6 +149,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--primary)
       <h3 style="margin-bottom:16px;font-size:16px">Add New Member</h3>
       <div class="form-grid">
         <div><label>Full Name *</label><input id="nName"></div>
+        <div><label>PF Number *</label><input id="nPf" placeholder="e.g. 12345"></div>
         <div><label>Voice Part *</label>
           <select id="nVoice"><option>Soprano</option><option>Alto</option><option>Tenor</option><option>Bass</option></select>
         </div>
@@ -201,11 +204,21 @@ document.addEventListener('keydown', e => {
 });
 
 // Session + user info
+let adminSb = null;
 (async () => {
   const session = await requireAuth("admin");
   if (!session) return;
   document.getElementById('userEmail').textContent = session.user.email;
   document.getElementById('userAvatar').textContent = initials(session.user.email.split('@')[0]);
+
+  if (window.SERVICE_ROLE_KEY) {
+    adminSb = window.supabase.createClient(window.SUPABASE_URL, window.SERVICE_ROLE_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false }
+    });
+  } else {
+    console.warn("SERVICE_ROLE_KEY not set — password reset will not work.");
+  }
+
   const { count } = await sb.from('apology_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending');
   const b = document.getElementById('apologyBadge');
   if (b) { b.textContent = count || 0; if (!count) b.style.display = 'none'; }
@@ -230,11 +243,19 @@ async function nextMemberId() {
 
 async function addMember() {
   const name = document.getElementById('nName').value.trim();
+  const pf = document.getElementById('nPf').value.trim();
   if (!name) return toast('Name is required', 'error');
+  if (!pf) return toast('PF Number is required', 'error');
+
+  // Check PF uniqueness
+  const { data: dupe } = await sb.from('members').select('member_id').eq('pf_number', pf).maybeSingle();
+  if (dupe) return toast(`PF Number ${pf} is already assigned to ${dupe.member_id}`, 'error');
+
   const mid = await nextMemberId();
   const payload = {
     member_id: mid,
     name,
+    pf_number: pf,
     voice_part: document.getElementById('nVoice').value,
     department: document.getElementById('nDept').value.trim(),
     email: document.getElementById('nEmail').value.trim() || null,
@@ -244,26 +265,47 @@ async function addMember() {
   const { error } = await sb.from('members').insert(payload);
   if (error) return toast(error.message, 'error');
   toast(`Member ${mid} added ✓`, 'success');
-  ['nName','nDept','nEmail','nPhone','nJoined'].forEach(id => document.getElementById(id).value = '');
+  ['nName','nPf','nDept','nEmail','nPhone','nJoined'].forEach(id => document.getElementById(id).value = '');
 }
 
 async function loadList(status) {
   const target = status === 'active' ? 'activeList' : 'alumniList';
-  const { data, error } = await sb.from('members').select('*').eq('status', status).order('name');
+
+  let q = sb.from('members').select('*').eq('status', status).order('name');
+  if (status === 'active') q = q.neq('role', 'admin');
+  const { data, error } = await q;
   if (error) return;
+
   const rows = data || [];
-  if (!rows.length) { document.getElementById(target).innerHTML = '<p style="color:var(--muted);padding:20px;text-align:center">No ' + status + ' members.</p>'; return; }
+  if (!rows.length) {
+    document.getElementById(target).innerHTML = '<p style="color:var(--muted);padding:20px;text-align:center">No ' + status + ' members.</p>';
+    return;
+  }
+
   document.getElementById(target).innerHTML = `
-    <div style="overflow-x:auto"><table><thead><tr><th>Name</th><th>ID</th><th>Voice</th><th>Actions</th></tr></thead><tbody>
+    <div style="overflow-x:auto"><table><thead><tr>
+      <th>Name</th><th>PF No.</th><th>ID</th><th>Voice</th><th>Department</th><th>Actions</th>
+    </tr></thead><tbody>
       ${rows.map(m => `<tr>
-        <td><strong>${m.name}</strong></td>
+        <td>
+          <strong>${m.name}</strong>
+          ${m.must_change_password ? '<span class="pill amber" style="margin-left:6px"><i class="ti ti-lock"></i> Must change password</span>' : ''}
+        </td>
+        <td>${m.pf_number || '<span style="color:var(--muted)">—</span>'}</td>
         <td>${m.member_id}</td>
         <td><span class="pill blue">${m.voice_part}</span></td>
-        <td>${status === 'active'
-          ? `<button class="btn amber sm" onclick="setStatus('${m.member_id}','alumni')">Move to Alumni</button>
-             <button class="btn danger sm" onclick="setStatus('${m.member_id}','removed')">Remove</button>`
-          : `<button class="btn success sm" onclick="setStatus('${m.member_id}','active')">Reactivate</button>
-             <button class="btn danger sm" onclick="deleteMember('${m.member_id}')">Delete</button>`}
+        <td>${m.department || '—'}</td>
+        <td style="display:flex;gap:6px;flex-wrap:wrap">
+          ${status === 'active' ? `
+            <button class="btn ghost sm" onclick="resetPassword('${m.member_id}','${m.name}','${m.email || ''}')" title="Reset to default password">
+              <i class="ti ti-key"></i> Reset
+            </button>
+            <button class="btn amber sm" onclick="setStatus('${m.member_id}','alumni')">Alumni</button>
+            <button class="btn danger sm" onclick="setStatus('${m.member_id}','removed')">Remove</button>
+          ` : `
+            <button class="btn success sm" onclick="setStatus('${m.member_id}','active')">Reactivate</button>
+            <button class="btn danger sm" onclick="deleteMember('${m.member_id}')">Delete</button>
+          `}
         </td></tr>`).join('')}
     </tbody></table></div>`;
 }
@@ -281,6 +323,44 @@ async function deleteMember(mid) {
   if (error) return toast(error.message, 'error');
   toast('Member deleted', 'success');
   loadList('alumni');
+}
+
+// ---------- Password reset ----------
+const DEFAULT_PASSWORD = 'UOEMCHOIR';
+
+async function resetPassword(mid, name, email) {
+  if (!email) return toast('This member has no email on file — cannot reset password.', 'error');
+  if (!adminSb) return toast('Admin client not ready. Check SERVICE_ROLE_KEY.', 'error');
+  if (!confirm(`Reset ${name}'s password to the default (${DEFAULT_PASSWORD})?\n\nThey will be forced to set a new password on next login.`)) return;
+
+  try {
+    let target = null;
+    let page = 1;
+    while (!target && page <= 20) {
+      const { data, error } = await adminSb.auth.admin.listUsers({ page, perPage: 200 });
+      if (error) throw error;
+      target = data.users.find(u => (u.email || '').toLowerCase() === email.toLowerCase());
+      if (!target && data.users.length < 200) break;
+      page++;
+    }
+    if (!target) throw new Error('No login account found for this email. Has this member registered yet?');
+
+    const { error: updErr } = await adminSb.auth.admin.updateUserById(target.id, {
+      password: DEFAULT_PASSWORD
+    });
+    if (updErr) throw updErr;
+
+    const { error: flagErr } = await sb.from('members')
+      .update({ must_change_password: true, updated_at: new Date().toISOString() })
+      .eq('member_id', mid);
+    if (flagErr) throw flagErr;
+
+    toast(`Password reset for ${name}. They'll be prompted to change it on next login.`, 'success');
+    loadList('active');
+  } catch (err) {
+    console.error(err);
+    toast(err.message || 'Reset failed', 'error');
+  }
 }
 </script>
 </body></html>

@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8">
+   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>𝄞</text></svg>">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Download Member List — Staff Choir</title>
+<!-- SHARED ADMIN HEAD -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../supabase-config.js"></script>
+<script src="../cache-helper.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<style>
+:root{
+  --primary:#2563eb;--primary-dark:#1d4ed8;--primary-light:#dbeafe;
+  --green:#10b981;--amber:#f59e0b;--red:#ef4444;
+  --bg:#f8fafc;--surface:#fff;--text:#0f172a;--muted:#64748b;
+  --border:#e2e8f0;--sidebar-w:240px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Inter,sans-serif;background:var(--bg);color:var(--text);font-size:14px}
+.sidebar{position:fixed;top:0;left:0;width:var(--sidebar-w);height:100vh;background:#0f172a;color:#cbd5e1;display:flex;flex-direction:column;padding:20px 14px;z-index:100;overflow-y:auto}
+.sidebar .brand{display:flex;align-items:center;gap:10px;color:#fff;font-weight:700;font-size:16px;padding:0 8px 20px;border-bottom:1px solid #1e293b;margin-bottom:16px}
+.sidebar .brand i{font-size:24px;color:#60a5fa}
+.sidebar-foot{
+  margin-top:auto;padding-top:16px;border-top:1px solid #1e293b;
+  position:sticky;bottom:0;background:#0f172a;padding-bottom:10px;
+}
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:99;opacity:0;transition:opacity .2s ease}
+.sidebar-overlay.show{display:block;opacity:1}
+@media(min-width:901px){.sidebar-overlay{display:none!important} body.sidebar-locked{overflow:auto}}
+body.sidebar-locked{overflow:hidden}
+.nav-group{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#64748b;padding:12px 10px 6px;font-weight:600}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;color:#cbd5e1;text-decoration:none;font-size:14px;font-weight:500;margin-bottom:2px;position:relative;transition:.15s}
+.nav-item:hover{background:#1e293b;color:#fff}
+.nav-item.active{background:var(--primary);color:#fff}
+.nav-item i{font-size:18px}
+.badge{margin-left:auto;background:var(--amber);color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px}
+.badge.today{background:var(--green)}
+.main{margin-left:var(--sidebar-w);padding:24px 28px 80px;min-height:100vh}
+.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px}
+.topbar h1{font-size:22px;font-weight:700}
+.topbar .user{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted)}
+.avatar{width:36px;height:36px;border-radius:50%;background:var(--primary-light);color:var(--primary);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px}
+.btn{padding:10px 16px;border-radius:8px;border:none;background:var(--primary);color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:6px;transition:.15s}
+.btn:hover{background:var(--primary-dark)}
+.btn.ghost{background:#fff;color:var(--text);border:1.5px solid var(--border)}
+.btn.ghost:hover{background:#f1f5f9}
+.btn.danger{background:var(--red)}
+.btn.success{background:var(--green)}
+.btn.amber{background:var(--amber)}
+.btn.sm{padding:6px 10px;font-size:12px}
+.card{background:var(--surface);border-radius:12px;padding:20px;border:1px solid var(--border);box-shadow:0 1px 3px rgba(0,0,0,.03)}
+.pill{padding:3px 9px;border-radius:12px;font-size:11px;font-weight:600;display:inline-block}
+.pill.green{background:#d1fae5;color:#065f46}
+.pill.blue{background:var(--primary-light);color:var(--primary-dark)}
+.pill.gray{background:#f1f5f9;color:#475569}
+input,select,textarea{padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:13px;background:#fff;color:var(--text);transition:.15s}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-light)}
+.mobile-nav{display:none}
+@media(max-width:900px){
+  .sidebar{transform:translateX(-100%);transition:.25s}
+  .sidebar.open{transform:translateX(0)}
+  .main{margin-left:0;padding:16px 14px 90px}
+  .mobile-nav{display:flex;position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--border);z-index:99;padding:8px 4px;justify-content:space-around}
+  .mobile-nav a{flex:1;text-align:center;color:var(--muted);text-decoration:none;font-size:10px;font-weight:600;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 0}
+  .mobile-nav a.active{color:var(--primary)}
+  .mobile-nav a i{font-size:20px}
+  .hamburger{display:flex!important}
+}
+.hamburger{display:none;background:none;border:none;font-size:22px;color:var(--muted);cursor:pointer}
+.hidden{display:none!important}
+
+/* page-specific */
+.option-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+.option-card{background:#fff;border:2px solid var(--border);border-radius:12px;padding:16px;cursor:pointer;transition:.15s;position:relative}
+.option-card:hover{border-color:var(--primary-light);background:#fafbff}
+.option-card.selected{border-color:var(--primary);background:#f0f6ff;box-shadow:0 4px 12px rgba(37,99,235,.1)}
+.option-card .title{font-weight:700;font-size:14px;margin-bottom:4px;display:flex;align-items:center;gap:8px}
+.option-card .desc{font-size:12px;color:var(--muted);line-height:1.5}
+.option-card i{font-size:22px;color:var(--primary)}
+.check{position:absolute;top:12px;right:12px;width:22px;height:22px;border-radius:50%;background:var(--primary);color:#fff;display:none;align-items:center;justify-content:center;font-size:14px}
+.option-card.selected .check{display:flex}
+.field-row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px}
+.field{display:flex;flex-direction:column;gap:4px;min-width:180px}
+.field label{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.chk-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;margin-top:8px}
+.chk{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;cursor:pointer;font-size:13px;transition:.1s;border:1px solid transparent}
+.chk:hover{background:#f8fafc}
+.chk input{width:auto;margin:0}
+.chk input:checked + span{font-weight:600}
+.preview-box{background:#f8fafc;border:1px dashed var(--border);border-radius:10px;padding:16px;margin-top:16px;font-size:13px;color:var(--muted);text-align:center}
+</style>
+</head><body>
+
+<!-- SHARED ADMIN SHELL -->
+<aside class="sidebar" id="sidebar">
+  <div class="brand"><i class="ti ti-music"></i>UoEM Staff Choir</div>
+  <div class="nav-group">Main</div>
+  <a class="nav-item" href="index.html"><i class="ti ti-layout-dashboard"></i> Dashboard</a>
+  <a class="nav-item" href="mark-attendance.html"><i class="ti ti-checklist"></i> Mark Attendance <span class="badge today">Today</span></a>
+  <a class="nav-item" href="reports.html"><i class="ti ti-file-analytics"></i> Reports</a>
+  <a class="nav-item" href="analytics.html"><i class="ti ti-chart-line"></i> Analytics</a>
+  <div class="nav-group">Management</div>
+  <a class="nav-item" href="apologies.html"><i class="ti ti-mail"></i> Apologies <span class="badge" id="apologyBadge">0</span></a>
+  <a class="nav-item" href="members.html"><i class="ti ti-users"></i> Members</a>
+  <a class="nav-item" href="manage-members.html"><i class="ti ti-user-cog"></i> Manage Members</a>
+  
+  <a class="nav-item" href="download-members.html"><i class="ti ti-download"></i> Download List</a>
+  <a class="nav-item" href="executive.html"><i class="ti ti-crown"></i> Executive</a>
+  <div class="sidebar-foot">
+    <a class="nav-item" href="#" onclick="logout();return false;"><i class="ti ti-logout"></i> Logout</a>
+  </div>
+</aside>
+
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+<main class="main">
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:12px">
+      <button class="hamburger" onclick="openSidebar()"><i class="ti ti-menu-2"></i></button>
+      <h1>Download Member List</h1>
+    </div>
+    <div class="user">
+      <div class="avatar" id="userAvatar">A</div>
+      <span id="userEmail">admin</span>
+    </div>
+  </div>
+
+  <!-- Page Content -->
+  <div class="card" style="margin-bottom:16px">
+    <h3 style="font-size:16px;margin-bottom:6px"><i class="ti ti-filter"></i> 1. Choose what to include</h3>
+    <p style="color:var(--muted);font-size:12.5px;margin-bottom:14px">Pick which members to export.</p>
+
+    <div class="option-grid" id="scopeOptions">
+      <div class="option-card selected" data-scope="active">
+        <div class="check"><i class="ti ti-check"></i></div>
+        <div class="title"><i class="ti ti-users"></i> Active Members</div>
+        <div class="desc">Everyone currently on the roster</div>
+      </div>
+      <div class="option-card" data-scope="alumni">
+        <div class="check"><i class="ti ti-check"></i></div>
+        <div class="title"><i class="ti ti-user-off"></i> Alumni</div>
+        <div class="desc">Former members who have moved on</div>
+      </div>
+      <div class="option-card" data-scope="all">
+        <div class="check"><i class="ti ti-check"></i></div>
+        <div class="title"><i class="ti ti-users-group"></i> Everyone</div>
+        <div class="desc">Active + Alumni combined</div>
+      </div>
+      <div class="option-card" data-scope="voice">
+        <div class="check"><i class="ti ti-check"></i></div>
+        <div class="title"><i class="ti ti-music"></i> By Voice Part</div>
+        <div class="desc">Choose a specific voice part below</div>
+      </div>
+    </div>
+
+    <div id="voicePicker" class="field-row hidden" style="margin-top:16px">
+      <div class="field">
+        <label>Voice Part</label>
+        <select id="voiceSelect">
+          <option>Soprano</option><option>Alto</option><option>Tenor</option><option>Bass</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px">
+    <h3 style="font-size:16px;margin-bottom:6px"><i class="ti ti-list-details"></i> 2. Choose columns</h3>
+    <p style="color:var(--muted);font-size:12.5px;margin-bottom:10px">Tick the fields to include in the export.</p>
+    <div class="chk-list">
+      <label class="chk"><input type="checkbox" checked data-col="member_id"><span>Member ID</span></label>
+      <label class="chk"><input type="checkbox" checked data-col="name"><span>Name</span></label>
+      <label class="chk"><input type="checkbox" checked data-col="pf_number"><span>PF Number</span></label>
+      <label class="chk"><input type="checkbox" checked data-col="voice_part"><span>Voice Part</span></label>
+      <label class="chk"><input type="checkbox" checked data-col="department"><span>Department</span></label>
+      <label class="chk"><input type="checkbox" data-col="email"><span>Email</span></label>
+      <label class="chk"><input type="checkbox" data-col="contact"><span>Phone</span></label>
+      <label class="chk"><input type="checkbox" data-col="joined_date"><span>Joined Date</span></label>
+      <label class="chk"><input type="checkbox" data-col="status"><span>Status</span></label>
+      <label class="chk"><input type="checkbox" data-col="role"><span>Role</span></label>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 style="font-size:16px;margin-bottom:6px"><i class="ti ti-download"></i> 3. Choose format &amp; download</h3>
+    <p style="color:var(--muted);font-size:12.5px;margin-bottom:14px">Get a clean, formatted file.</p>
+
+    <div class="field-row">
+      <div class="field">
+        <label>Format</label>
+        <select id="formatSelect">
+          <option value="pdf">PDF — nicely formatted, printable</option>
+          <option value="csv">CSV — for Excel / Google Sheets</option>
+          <option value="pdf-simple">PDF — plain list (compact)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Sort by</label>
+        <select id="sortSelect">
+          <option value="name">Name (A → Z)</option>
+          <option value="voice_part">Voice Part</option>
+          <option value="member_id">Member ID</option>
+          <option value="department">Department</option>
+          <option value="joined_date">Joined date</option>
+        </select>
+      </div>
+    </div>
+
+    <button class="btn" onclick="generateDownload()" style="margin-top:6px">
+      <i class="ti ti-download"></i> Generate &amp; Download
+    </button>
+
+    <div class="preview-box" id="previewBox">
+      <i class="ti ti-info-circle"></i> Your download will appear in your browser's downloads folder.
+    </div>
+  </div>
+</main>
+
+<nav class="mobile-nav">
+  <a href="index.html"><i class="ti ti-layout-dashboard"></i>Home</a>
+  <a href="mark-attendance.html"><i class="ti ti-checklist"></i>Mark</a>
+  <a href="reports.html"><i class="ti ti-file-analytics"></i>Reports</a>
+  <a href="analytics.html"><i class="ti ti-chart-line"></i>Analytics</a>
+</nav>
+
+<script>
+// ---------- Sidebar ----------
+function openSidebar() {
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('sidebarOverlay').classList.add('show');
+  document.body.classList.add('sidebar-locked');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebarOverlay').classList.remove('show');
+  document.body.classList.remove('sidebar-locked');
+}
+document.querySelectorAll('.nav-item, .mobile-nav a').forEach(a => {
+  if (a.getAttribute('href') === location.pathname.split('/').pop()) a.classList.add('active');
+  a.addEventListener('click', () => {
+    const href = a.getAttribute('href');
+    if (href && href !== '#') closeSidebar();
+  });
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSidebar(); });
+
+// Session
+(async () => {
+  const session = await requireAuth("admin");
+  if (!session) return;
+  document.getElementById('userEmail').textContent = session.user.email;
+  document.getElementById('userAvatar').textContent = initials(session.user.email.split('@')[0]);
+  const { count } = await sb.from('apology_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending');
+  const b = document.getElementById('apologyBadge');
+  if (b) { b.textContent = count || 0; if (!count) b.style.display = 'none'; }
+})();
+
+// ---------- Scope selection ----------
+let currentScope = 'active';
+document.querySelectorAll('#scopeOptions .option-card').forEach(card => {
+  card.addEventListener('click', () => {
+    document.querySelectorAll('#scopeOptions .option-card').forEach(c => c.classList.remove('selected'));
+    card.classList.add('selected');
+    currentScope = card.dataset.scope;
+    document.getElementById('voicePicker').classList.toggle('hidden', currentScope !== 'voice');
+  });
+});
+
+// ---------- Download generation ----------
+async function generateDownload() {
+  const btn = event.target.closest('button');
+  const original = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="ti ti-loader"></i> Fetching…';
+
+  try {
+    // 1. Fetch members
+    let q = sb.from('members').select('*');
+    if (currentScope === 'active') q = q.eq('status', 'active').neq('role', 'admin');
+    else if (currentScope === 'alumni') q = q.eq('status', 'alumni');
+    else if (currentScope === 'voice') {
+      const v = document.getElementById('voiceSelect').value;
+      q = q.eq('voice_part', v).eq('status', 'active');
+    }
+    // scope === 'all' → no filter
+
+    const { data: members, error } = await q;
+    if (error) throw error;
+    if (!members || !members.length) throw new Error('No members matched your filters.');
+
+    // 2. Determine columns
+    const cols = [...document.querySelectorAll('.chk input[type=checkbox]:checked')].map(c => c.dataset.col);
+    if (!cols.length) throw new Error('Pick at least one column to include.');
+
+    // 3. Sort
+    const sortKey = document.getElementById('sortSelect').value;
+    members.sort((a, b) => {
+      const va = a[sortKey] || '';
+      const vb = b[sortKey] || '';
+      return String(va).localeCompare(String(vb));
+    });
+
+    // 4. Format output
+    const format = document.getElementById('formatSelect').value;
+    const scopeLabel = {
+      active: 'Active Members',
+      alumni: 'Alumni',
+      all: 'All Members',
+      voice: `Voice Part: ${document.getElementById('voiceSelect').value}`
+    }[currentScope];
+
+    if (format === 'csv') {
+      exportCSV(members, cols, scopeLabel);
+    } else if (format === 'pdf') {
+      exportPDFFormatted(members, cols, scopeLabel);
+    } else {
+      exportPDFSimple(members, cols, scopeLabel);
+    }
+
+    document.getElementById('previewBox').innerHTML =
+      `<i class="ti ti-check" style="color:var(--green)"></i> Downloaded ${members.length} member${members.length === 1 ? '' : 's'} ✓`;
+  } catch (err) {
+    console.error(err);
+    document.getElementById('previewBox').innerHTML =
+      `<i class="ti ti-alert-circle" style="color:var(--red)"></i> ${err.message}`;
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = original;
+  }
+}
+
+/* ---------- Friendly column labels ---------- */
+const COL_LABELS = {
+  member_id: 'Member ID',
+  name: 'Full Name',
+  pf_number: 'PF No.',
+  voice_part: 'Voice Part',
+  department: 'Department',
+  email: 'Email',
+  contact: 'Phone',
+  joined_date: 'Joined',
+  status: 'Status',
+  role: 'Role'
+};
+
+/* ---------- CSV export ---------- */
+function exportCSV(members, cols, scopeLabel) {
+  const header = cols.map(c => COL_LABELS[c] || c);
+  const rows = members.map(m => cols.map(c => {
+    let v = m[c] ?? '';
+    if (c === 'joined_date' && v) v = fmtDate(v);
+    return v;
+  }));
+  const esc = v => `"${String(v).replace(/"/g, '""')}"`;
+  const csv = [header, ...rows].map(r => r.map(esc).join(',')).join('\r\n');
+
+  // BOM so Excel opens with correct encoding
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
+  triggerDownload(blob, filename('csv', scopeLabel));
+}
+
+/* ---------- PDF helpers ---------- */
+function pdfHeader(doc, scopeLabel, total) {
+  const pageW = doc.internal.pageSize.getWidth();
+
+  // Blue banner
+  doc.setFillColor(37, 99, 235);
+  doc.rect(0, 0, pageW, 24, 'F');
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(16);
+  doc.setFont(undefined, 'bold');
+  doc.text('UoEM Staff Choir — Member List', 14, 15);
+
+  doc.setTextColor(15, 23, 42);
+  doc.setFont(undefined, 'normal');
+  doc.setFontSize(10);
+  doc.text(`Scope: ${scopeLabel}`, 14, 32);
+  doc.text(`Total: ${total} member${total === 1 ? '' : 's'}`, 14, 38);
+  doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 44);
+
+  // Divider
+  doc.setDrawColor(226, 232, 240);
+  doc.line(14, 48, pageW - 14, 48);
+  return 54;
+}
+
+function pdfFooter(doc) {
+  const pageCount = doc.internal.getNumberOfPages();
+  const pageH = doc.internal.pageSize.getHeight();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8);
+    doc.setTextColor(148, 163, 184);
+    doc.text(
+      `UoEM Staff Choir  ·  Page ${i} of ${pageCount}  ·  Generated ${new Date().toLocaleDateString()}`,
+      14, pageH - 8
+    );
+  }
+}
+
+/* ---------- Formatted PDF (with header banner + nice table) ---------- */
+function exportPDFFormatted(members, cols, scopeLabel) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+  let y = pdfHeader(doc, scopeLabel, members.length);
+
+  // Prepare columns for autoTable
+  const head = [cols.map(c => COL_LABELS[c] || c)];
+  const body = members.map(m => cols.map(c => {
+    let v = m[c] ?? '—';
+    if (c === 'joined_date' && v && v !== '—') v = fmtDate(v);
+    return v;
+  }));
+
+  doc.autoTable({
+    startY: y,
+    head,
+    body,
+    theme: 'striped',
+    styles: { fontSize: 9, cellPadding: 2.5, textColor: [30, 41, 59] },
+    headStyles: {
+      fillColor: [37, 99, 235],
+      textColor: [255, 255, 255],
+      fontStyle: 'bold',
+      fontSize: 9,
+      halign: 'left'
+    },
+    alternateRowStyles: { fillColor: [248, 250, 252] },
+    margin: { left: 14, right: 14 },
+    tableLineColor: [226, 232, 240],
+    tableLineWidth: 0.1
+  });
+
+  pdfFooter(doc);
+  doc.save(filename('pdf', scopeLabel));
+}
+
+/* ---------- Compact PDF (plain list, no border) ---------- */
+function exportPDFSimple(members, cols, scopeLabel) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+  let y = pdfHeader(doc, scopeLabel, members.length);
+
+  doc.setFontSize(10);
+  doc.setTextColor(30, 41, 59);
+
+  members.forEach((m, i) => {
+    if (y > 280) { doc.addPage(); y = 20; }
+
+    // Number + name + a few key fields, one member per line-block
+    const line = [];
+    if (cols.includes('member_id')) line.push(m.member_id || '—');
+    if (cols.includes('name')) line.push(m.name || '—');
+    if (cols.includes('pf_number')) line.push(`PF: ${m.pf_number || '—'}`);
+    if (cols.includes('voice_part')) line.push(m.voice_part || '—');
+    if (cols.includes('department')) line.push(m.department || '—');
+
+    doc.setFont(undefined, 'bold');
+    doc.text(`${i + 1}.`, 14, y);
+    doc.setFont(undefined, 'normal');
+    doc.text(line.join('  ·  '), 22, y);
+    y += 6;
+
+    // Secondary line: email, phone, etc.
+    const line2 = [];
+    if (cols.includes('email') && m.email) line2.push(`✉ ${m.email}`);
+    if (cols.includes('contact') && m.contact) line2.push(`☎ ${m.contact}`);
+    if (cols.includes('joined_date') && m.joined_date) line2.push(`Joined: ${fmtDate(m.joined_date)}`);
+    if (line2.length) {
+      doc.setTextColor(100, 116, 139);
+      doc.setFontSize(9);
+      doc.text(line2.join('   '), 22, y);
+      doc.setFontSize(10);
+      doc.setTextColor(30, 41, 59);
+      y += 5;
+    }
+    y += 2;
+  });
+
+  pdfFooter(doc);
+  doc.save(filename('pdf-list', scopeLabel));
+}
+
+/* ---------- Utils ---------- */
+function filename(ext, scopeLabel) {
+  const d = new Date().toISOString().slice(0, 10);
+  const safe = scopeLabel.replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+  return `staff-choir-members-${safe}-${d}.${ext}`;
+}
+function triggerDownload(blob, name) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 100);
+}
+</script>
+</body></html>

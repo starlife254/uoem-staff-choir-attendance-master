@@ -85,6 +85,25 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--primary)
 .page-head h2{font-size:18px;font-weight:700}
 .page-head p{font-size:12.5px;color:var(--muted);margin-top:2px}
 
+/* Registration indicator */
+.reg-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px;vertical-align:middle}
+.reg-dot.on{background:var(--green);box-shadow:0 0 0 3px rgba(16,185,129,.15)}
+.reg-dot.off{background:var(--red);box-shadow:0 0 0 3px rgba(239,68,68,.15)}
+.reg-status{display:inline-flex;align-items:center;font-size:12px;font-weight:600;white-space:nowrap}
+.reg-status.on{color:#065f46}
+.reg-status.off{color:#991b1b}
+
+/* Summary stats */
+.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px}
+.summary .s{background:#fff;border:1px solid var(--border);border-radius:10px;padding:14px 16px;display:flex;align-items:center;gap:12px}
+.summary .s .icon{width:38px;height:38px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.summary .s .icon.green{background:#d1fae5;color:#047857}
+.summary .s .icon.red{background:#fee2e2;color:#b91c1c}
+.summary .s .icon.blue{background:#dbeafe;color:#1d4ed8}
+.summary .s .icon.amber{background:#fef3c7;color:#b45309}
+.summary .s .v{font-size:22px;font-weight:800;line-height:1}
+.summary .s .l{font-size:11.5px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-top:2px}
+
 /* Download modal */
 .modal-bg{display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:200;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(2px)}
 .modal-bg.show{display:flex}
@@ -165,6 +184,38 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--primary)
     </button>
   </div>
 
+  <!-- SUMMARY STATS -->
+  <div class="summary">
+    <div class="s">
+      <div class="icon blue"><i class="ti ti-users"></i></div>
+      <div>
+        <div class="v" id="statTotal">—</div>
+        <div class="l">Total</div>
+      </div>
+    </div>
+    <div class="s">
+      <div class="icon green"><i class="ti ti-user-check"></i></div>
+      <div>
+        <div class="v" id="statRegistered" style="color:var(--green)">—</div>
+        <div class="l">Registered</div>
+      </div>
+    </div>
+    <div class="s">
+      <div class="icon red"><i class="ti ti-user-x"></i></div>
+      <div>
+        <div class="v" id="statPending" style="color:var(--red)">—</div>
+        <div class="l">Not Registered</div>
+      </div>
+    </div>
+    <div class="s">
+      <div class="icon amber"><i class="ti ti-percentage"></i></div>
+      <div>
+        <div class="v" id="statRate">—</div>
+        <div class="l">Sign-up Rate</div>
+      </div>
+    </div>
+  </div>
+
   <!-- FILTERS + TABLE -->
   <div class="card">
     <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">
@@ -178,9 +229,14 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--primary)
         <option value="alumni">Alumni</option>
         <option value="">Everyone</option>
       </select>
+      <select id="regFilter" onchange="render()">
+        <option value="">Any Sign-up Status</option>
+        <option value="registered">✅ Registered only</option>
+        <option value="pending">⚠️ Not registered only</option>
+      </select>
     </div>
     <div style="overflow-x:auto"><table id="tbl"><thead><tr>
-      <th>Name</th><th>PF No.</th><th>ID</th><th>Voice Part</th><th>Department</th><th>Email</th><th>Phone</th>
+      <th>Name</th><th>PF No.</th><th>ID</th><th>Voice Part</th><th>Department</th><th>Email</th><th>Sign-up</th>
     </tr></thead><tbody></tbody></table></div>
   </div>
 </main>
@@ -237,7 +293,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--primary)
         <label class="chk"><input type="checkbox" data-col="email"><span>Email</span></label>
         <label class="chk"><input type="checkbox" data-col="contact"><span>Phone</span></label>
         <label class="chk"><input type="checkbox" data-col="joined_date"><span>Joined Date</span></label>
-        <label class="chk"><input type="checkbox" data-col="status"><span>Status</span></label>
+        <label class="chk"><input type="checkbox" data-col="registration"><span>Sign-up Status</span></label>
       </div>
 
       <div class="section-title">3 · Format &amp; sort</div>
@@ -321,25 +377,53 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSidebar
 let allMembers = [];
 
 async function load() {
-  const { data, error } = await sb.from('members').select('*')
+  // 1. Fetch all non-admin members
+  const { data: members, error } = await sb.from('members').select('*')
     .neq('role', 'admin')
     .order('name');
   if (error) return toast(error.message, 'error');
-  allMembers = data || [];
+  allMembers = members || [];
+
+  // 2. Fetch all user_members rows (these tell us who has registered)
+  const { data: links } = await sb.from('user_members').select('member_id');
+  const registered = new Set((links || []).map(l => l.member_id));
+
+  // 3. Attach registration flag to each member
+  allMembers.forEach(m => {
+    m._registered = registered.has(m.member_id);
+  });
+
   render();
+  updateStats();
+}
+
+function updateStats() {
+  // Stats are computed against the ACTIVE members only
+  const active = allMembers.filter(m => m.status === 'active');
+  const total = active.length;
+  const regCount = active.filter(m => m._registered).length;
+  const pending = total - regCount;
+  const rate = total ? Math.round(regCount / total * 100) : 0;
+
+  document.getElementById('statTotal').textContent = total;
+  document.getElementById('statRegistered').textContent = regCount;
+  document.getElementById('statPending').textContent = pending;
+  document.getElementById('statRate').textContent = rate + '%';
 }
 
 function render() {
   const q = (document.getElementById('search').value || '').toLowerCase();
   const vf = document.getElementById('voiceFilter').value;
   const sf = document.getElementById('statusFilter').value;
+  const rf = document.getElementById('regFilter').value;
 
   const rows = allMembers.filter(m => {
     const hay = `${m.name || ''} ${m.pf_number || ''} ${m.email || ''} ${m.department || ''}`.toLowerCase();
     const match = !q || hay.includes(q);
     const v = !vf || m.voice_part === vf;
     const s = !sf || m.status === sf;
-    return match && v && s;
+    const r = !rf || (rf === 'registered' ? m._registered : !m._registered);
+    return match && v && s && r;
   });
 
   document.querySelector('#tbl tbody').innerHTML = rows.map(m => `
@@ -350,18 +434,18 @@ function render() {
       <td><span class="pill blue">${m.voice_part}</span></td>
       <td>${m.department || '—'}</td>
       <td>${m.email || '—'}</td>
-      <td>${m.contact || '—'}</td>
+      <td>
+        ${m._registered
+          ? '<span class="reg-status on"><span class="reg-dot on"></span>Registered</span>'
+          : '<span class="reg-status off"><span class="reg-dot off"></span>Not registered</span>'}
+      </td>
     </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px">No members found</td></tr>';
 }
 load();
 
 // ---------- Download Modal ----------
-function openDownloadModal() {
-  document.getElementById('downloadModal').classList.add('show');
-}
-function closeDownloadModal() {
-  document.getElementById('downloadModal').classList.remove('show');
-}
+function openDownloadModal() { document.getElementById('downloadModal').classList.add('show'); }
+function closeDownloadModal() { document.getElementById('downloadModal').classList.remove('show'); }
 
 let currentScope = 'active';
 document.querySelectorAll('#scopeOptions .option-card').forEach(card => {
@@ -373,22 +457,19 @@ document.querySelectorAll('#scopeOptions .option-card').forEach(card => {
   });
 });
 
-// Close modal on backdrop click
 document.getElementById('downloadModal').addEventListener('click', e => {
   if (e.target.id === 'downloadModal') closeDownloadModal();
 });
 
-// ---------- Generate download ----------
 async function generateDownload() {
   const btn = document.getElementById('genBtn');
   const original = btn.innerHTML;
   btn.disabled = true;
   btn.innerHTML = '<i class="ti ti-loader"></i> Generating…';
-
   const preview = document.getElementById('previewBox');
 
   try {
-    // Fetch
+    // Fetch scope + user_members to know who's registered
     let q = sb.from('members').select('*');
     if (currentScope === 'active') q = q.eq('status', 'active').neq('role', 'admin');
     else if (currentScope === 'alumni') q = q.eq('status', 'alumni');
@@ -402,6 +483,11 @@ async function generateDownload() {
     const { data: members, error } = await q;
     if (error) throw error;
     if (!members || !members.length) throw new Error('No members matched your filters.');
+
+    // Fetch registration links
+    const { data: links } = await sb.from('user_members').select('member_id');
+    const regSet = new Set((links || []).map(l => l.member_id));
+    members.forEach(m => { m._registered = regSet.has(m.member_id); });
 
     const cols = [...document.querySelectorAll('.chk input[type=checkbox]:checked')].map(c => c.dataset.col);
     if (!cols.length) throw new Error('Pick at least one column to include.');
@@ -436,17 +522,19 @@ async function generateDownload() {
 const COL_LABELS = {
   member_id: 'Member ID', name: 'Full Name', pf_number: 'PF No.',
   voice_part: 'Voice Part', department: 'Department', email: 'Email',
-  contact: 'Phone', joined_date: 'Joined', status: 'Status'
+  contact: 'Phone', joined_date: 'Joined', registration: 'Sign-up Status'
 };
+
+function cellValue(m, c) {
+  if (c === 'joined_date') return m.joined_date ? fmtDate(m.joined_date) : '';
+  if (c === 'registration') return m._registered ? 'Registered' : 'Not registered';
+  return m[c] ?? '';
+}
 
 /* ---------- CSV ---------- */
 function exportCSV(members, cols, scopeLabel) {
   const header = cols.map(c => COL_LABELS[c] || c);
-  const rows = members.map(m => cols.map(c => {
-    let v = m[c] ?? '';
-    if (c === 'joined_date' && v) v = fmtDate(v);
-    return v;
-  }));
+  const rows = members.map(m => cols.map(c => cellValue(m, c)));
   const esc = v => `"${String(v).replace(/"/g, '""')}"`;
   const csv = [header, ...rows].map(r => r.map(esc).join(',')).join('\r\n');
   const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
@@ -486,11 +574,7 @@ function exportPDFFormatted(members, cols, scopeLabel) {
   let y = pdfHeader(doc, scopeLabel, members.length);
 
   const head = [cols.map(c => COL_LABELS[c] || c)];
-  const body = members.map(m => cols.map(c => {
-    let v = m[c] ?? '—';
-    if (c === 'joined_date' && v && v !== '—') v = fmtDate(v);
-    return v;
-  }));
+  const body = members.map(m => cols.map(c => cellValue(m, c) || '—'));
 
   doc.autoTable({
     startY: y, head, body, theme: 'striped',
@@ -498,7 +582,15 @@ function exportPDFFormatted(members, cols, scopeLabel) {
     headStyles: { fillColor: [37, 99, 235], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
     alternateRowStyles: { fillColor: [248, 250, 252] },
     margin: { left: 14, right: 14 },
-    tableLineColor: [226, 232, 240], tableLineWidth: 0.1
+    tableLineColor: [226, 232, 240], tableLineWidth: 0.1,
+    didParseCell: (data) => {
+      // Color the "Sign-up Status" cells
+      if (data.section === 'body' && cols[data.column.index] === 'registration') {
+        const v = String(data.cell.raw).toLowerCase();
+        if (v === 'registered') data.cell.styles.textColor = [16, 185, 129];
+        else if (v === 'not registered') data.cell.styles.textColor = [239, 68, 68];
+      }
+    }
   });
 
   pdfFooter(doc);
@@ -531,6 +623,7 @@ function exportPDFSimple(members, cols, scopeLabel) {
     if (cols.includes('email') && m.email) line2.push(`✉ ${m.email}`);
     if (cols.includes('contact') && m.contact) line2.push(`☎ ${m.contact}`);
     if (cols.includes('joined_date') && m.joined_date) line2.push(`Joined: ${fmtDate(m.joined_date)}`);
+    if (cols.includes('registration')) line2.push(m._registered ? '✓ Registered' : '✗ Not registered');
     if (line2.length) {
       doc.setTextColor(100, 116, 139); doc.setFontSize(9);
       doc.text(line2.join('   '), 22, y);

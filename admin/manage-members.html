@@ -271,6 +271,9 @@ async function addMember() {
 async function loadList(status) {
   const target = status === 'active' ? 'activeList' : 'alumniList';
 
+   const { data: links } = await sb.from('user_members').select('member_id');
+  const regSet = new Set((links || []).map(l => l.member_id));
+
   let q = sb.from('members').select('*').eq('status', status).order('name');
   if (status === 'active') q = q.neq('role', 'admin');
   const { data, error } = await q;
@@ -287,9 +290,12 @@ async function loadList(status) {
       <th>Name</th><th>PF No.</th><th>ID</th><th>Voice</th><th>Department</th><th>Actions</th>
     </tr></thead><tbody>
       ${rows.map(m => `<tr>
-        <td>
+               <td>
           <strong>${m.name}</strong>
           ${m.must_change_password ? '<span class="pill amber" style="margin-left:6px"><i class="ti ti-lock"></i> Must change password</span>' : ''}
+          ${regSet.has(m.member_id)
+            ? '<span class="reg-status on" style="margin-left:8px"><span class="reg-dot on"></span>Registered</span>'
+            : '<span class="reg-status off" style="margin-left:8px"><span class="reg-dot off"></span>Not registered</span>'}
         </td>
         <td>${m.pf_number || '<span style="color:var(--muted)">—</span>'}</td>
         <td>${m.member_id}</td>

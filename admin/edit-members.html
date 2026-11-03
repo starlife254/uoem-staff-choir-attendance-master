@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8">
+   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>𝄞</text></svg>">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quick Edit Members — Staff Choir</title>
+<!-- SHARED ADMIN HEAD -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../supabase-config.js"></script>
+<script src="../cache-helper.js"></script>
+<style>
+:root{
+  --primary:#2563eb;--primary-dark:#1d4ed8;--primary-light:#dbeafe;
+  --green:#10b981;--amber:#f59e0b;--red:#ef4444;
+  --bg:#f8fafc;--surface:#fff;--text:#0f172a;--muted:#64748b;
+  --border:#e2e8f0;--sidebar-w:240px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Inter,sans-serif;background:var(--bg);color:var(--text);font-size:14px}
+.sidebar{position:fixed;top:0;left:0;width:var(--sidebar-w);height:100vh;background:#0f172a;color:#cbd5e1;display:flex;flex-direction:column;padding:20px 14px;z-index:100;overflow-y:auto}
+.sidebar .brand{display:flex;align-items:center;gap:10px;color:#fff;font-weight:700;font-size:16px;padding:0 8px 20px;border-bottom:1px solid #1e293b;margin-bottom:16px}
+.sidebar .brand i{font-size:24px;color:#60a5fa}
+.sidebar-foot{
+  margin-top:auto;padding-top:16px;border-top:1px solid #1e293b;
+  position:sticky;bottom:0;background:#0f172a;padding-bottom:10px;
+}
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:99;opacity:0;transition:opacity .2s ease}
+.sidebar-overlay.show{display:block;opacity:1}
+@media(min-width:901px){.sidebar-overlay{display:none!important} body.sidebar-locked{overflow:auto}}
+body.sidebar-locked{overflow:hidden}
+.nav-group{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#64748b;padding:12px 10px 6px;font-weight:600}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;color:#cbd5e1;text-decoration:none;font-size:14px;font-weight:500;margin-bottom:2px;position:relative;transition:.15s}
+.nav-item:hover{background:#1e293b;color:#fff}
+.nav-item.active{background:var(--primary);color:#fff}
+.nav-item i{font-size:18px}
+.badge{margin-left:auto;background:var(--amber);color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px}
+.badge.today{background:var(--green)}
+.main{margin-left:var(--sidebar-w);padding:24px 28px 80px;min-height:100vh}
+.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px}
+.topbar h1{font-size:22px;font-weight:700}
+.topbar .user{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted)}
+.avatar{width:36px;height:36px;border-radius:50%;background:var(--primary-light);color:var(--primary);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px}
+.btn{padding:10px 16px;border-radius:8px;border:none;background:var(--primary);color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:6px;transition:.15s}
+.btn:hover{background:var(--primary-dark)}
+.btn.ghost{background:#fff;color:var(--text);border:1.5px solid var(--border)}
+.btn.ghost:hover{background:#f1f5f9}
+.card{background:var(--surface);border-radius:12px;padding:20px;border:1px solid var(--border);box-shadow:0 1px 3px rgba(0,0,0,.03)}
+input,select,textarea{padding:8px 10px;border:1.5px solid var(--border);border-radius:6px;font-family:inherit;font-size:13px;background:#fff;color:var(--text);transition:.15s;width:100%}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-light)}
+.mobile-nav{display:none}
+@media(max-width:900px){
+  .sidebar{transform:translateX(-100%);transition:.25s}
+  .sidebar.open{transform:translateX(0)}
+  .main{margin-left:0;padding:16px 14px 90px}
+  .mobile-nav{display:flex;position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--border);z-index:99;padding:8px 4px;justify-content:space-around}
+  .mobile-nav a{flex:1;text-align:center;color:var(--muted);text-decoration:none;font-size:10px;font-weight:600;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 0}
+  .mobile-nav a.active{color:var(--primary)}
+  .mobile-nav a i{font-size:20px}
+  .hamburger{display:flex!important}
+}
+.hamburger{display:none;background:none;border:none;font-size:22px;color:var(--text);cursor:pointer}
+.hidden{display:none!important}
+
+/* page-specific */
+.progress-bar{width:100%;height:12px;background:#e2e8f0;border-radius:6px;margin-bottom:20px;overflow:hidden}
+.progress-fill{height:100%;background:var(--green);width:0%;transition:width .3s}
+.edit-table{width:100%;border-collapse:collapse;font-size:13px;background:#fff;border-radius:8px;overflow:hidden}
+.edit-table th{background:#f8fafc;text-align:left;padding:12px;border-bottom:2px solid var(--border);font-size:11px;text-transform:uppercase;color:var(--muted);font-weight:700}
+.edit-table td{padding:8px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
+.edit-table tr:hover td{background:#f8fafc}
+.edit-table input,.edit-table select{padding:6px 8px;font-size:12px;border-radius:6px}
+.edit-table .member-id{font-size:11px;color:var(--muted);margin-top:2px;display:block}
+.saved-indicator{color:var(--green);font-size:12px;margin-left:8px;opacity:0;transition:opacity 0.3s}
+</style>
+</head><body>
+
+<!-- SHARED ADMIN SHELL -->
+<aside class="sidebar" id="sidebar">
+  <div class="brand"><i class="ti ti-music"></i>UoEM Staff Choir</div>
+  <div class="nav-group">Main</div>
+  <a class="nav-item" href="index.html"><i class="ti ti-layout-dashboard"></i> Dashboard</a>
+  <a class="nav-item" href="mark-attendance.html"><i class="ti ti-checklist"></i> Mark Attendance <span class="badge today">Today</span></a>
+  <a class="nav-item" href="reports.html"><i class="ti ti-file-analytics"></i> Reports</a>
+  <a class="nav-item" href="analytics.html"><i class="ti ti-chart-line"></i> Analytics</a>
+  <div class="nav-group">Management</div>
+  <a class="nav-item" href="apologies.html"><i class="ti ti-mail"></i> Apologies <span class="badge" id="apologyBadge">0</span></a>
+  <a class="nav-item" href="members.html"><i class="ti ti-users"></i> Members</a>
+  <a class="nav-item" href="manage-members.html"><i class="ti ti-user-cog"></i> Manage Members</a>
+  <a class="nav-item active" href="edit-members.html"><i class="ti ti-table"></i> Quick Edit List</a>
+  <a class="nav-item" href="executive.html"><i class="ti ti-crown"></i> Executive</a>
+  <div class="sidebar-foot">
+    <a class="nav-item" href="#" onclick="logout();return false;"><i class="ti ti-logout"></i> Logout</a>
+  </div>
+</aside>
+
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+<main class="main">
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:12px">
+      <button class="hamburger" onclick="openSidebar()"><i class="ti ti-menu-2"></i></button>
+      <h1 id="pageTitle">Quick Edit List</h1>
+    </div>
+    <div class="user">
+      <div class="avatar" id="userAvatar">A</div>
+      <span id="userEmail">admin</span>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div>
+        <h3 style="font-size:16px">Voice Part Assignment</h3>
+        <p style="font-size:12.5px;color:var(--muted)">Changes are saved automatically. Use Tab to move quickly between fields.</p>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:18px;font-weight:800" id="progressText">0 / 0</div>
+        <div style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:600">Assigned</div>
+      </div>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+  </div>
+
+  <div class="card" style="padding:0;overflow:hidden">
+    <div style="overflow-x:auto">
+      <table class="edit-table" id="editTable">
+        <thead>
+          <tr>
+            <th style="width:20%">Name</th>
+            <th style="width:12%">PF No.</th>
+            <th style="width:14%">Voice Part</th>
+            <th style="width:18%">Department</th>
+            <th style="width:14%">Phone</th>
+            <th style="width:22%">Email</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody">
+          <tr><td colspan="6" style="text-align:center;padding:30px;color:var(--muted)">Loading members…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<nav class="mobile-nav">
+  <a href="index.html"><i class="ti ti-layout-dashboard"></i>Home</a>
+  <a href="mark-attendance.html"><i class="ti ti-checklist"></i>Mark</a>
+  <a href="reports.html"><i class="ti ti-file-analytics"></i>Reports</a>
+  <a href="analytics.html"><i class="ti ti-chart-line"></i>Analytics</a>
+</nav>
+
+<script>
+// ---------- Mobile sidebar ----------
+function openSidebar() {
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('sidebarOverlay').classList.add('show');
+  document.body.classList.add('sidebar-locked');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebarOverlay').classList.remove('show');
+  document.body.classList.remove('sidebar-locked');
+}
+document.querySelectorAll('.nav-item, .mobile-nav a').forEach(a => {
+  if (a.getAttribute('href') === location.pathname.split('/').pop()) a.classList.add('active');
+  a.addEventListener('click', () => {
+    const href = a.getAttribute('href');
+    if (href && href !== '#') closeSidebar();
+  });
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSidebar(); });
+
+// Session
+(async () => {
+  const session = await requireAuth("admin");
+  if (!session) return;
+  document.getElementById('userEmail').textContent = session.user.email;
+  document.getElementById('userAvatar').textContent = initials(session.user.email.split('@')[0]);
+  const { count } = await sb.from('apology_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending');
+  const b = document.getElementById('apologyBadge');
+  if (b) { b.textContent = count || 0; if (!count) b.style.display = 'none'; }
+})();
+
+// ---------- Edit Logic ----------
+let members = [];
+
+async function loadMembers() {
+  const { data, error } = await sb.from('members')
+    .select('*')
+    .eq('status', 'active')
+    .neq('role', 'admin')
+    .order('name');
+
+  if (error) {
+    toast(error.message, 'error');
+    return;
+  }
+
+  members = data || [];
+  renderTable();
+  updateProgress();
+}
+
+function renderTable() {
+  const tbody = document.getElementById('tableBody');
+  
+  if (!members.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--muted)">No active members found.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = members.map(m => `
+    <tr>
+      <td>
+        <strong>${m.name}</strong>
+        <span class="member-id">${m.member_id}</span>
+      </td>
+      <td>
+        <input type="text" value="${m.pf_number || ''}" 
+               onchange="updateField('${m.member_id}', 'pf_number', this.value, this)" placeholder="PF No.">
+      </td>
+      <td>
+        <select onchange="updateField('${m.member_id}', 'voice_part', this.value, this)" style="font-weight:600">
+          <option value="" ${!m.voice_part ? 'selected' : ''}>— Unassigned —</option>
+          <option value="Soprano" ${m.voice_part === 'Soprano' ? 'selected' : ''}>Soprano</option>
+          <option value="Alto" ${m.voice_part === 'Alto' ? 'selected' : ''}>Alto</option>
+          <option value="Tenor" ${m.voice_part === 'Tenor' ? 'selected' : ''}>Tenor</option>
+          <option value="Bass" ${m.voice_part === 'Bass' ? 'selected' : ''}>Bass</option>
+        </select>
+      </td>
+      <td>
+        <input type="text" value="${m.department || ''}" 
+               onchange="updateField('${m.member_id}', 'department', this.value, this)" placeholder="Department">
+      </td>
+      <td>
+        <input type="text" value="${m.contact || ''}" 
+               onchange="updateField('${m.member_id}', 'contact', this.value, this)" placeholder="Phone">
+      </td>
+      <td>
+        <input type="email" value="${m.email || ''}" 
+               onchange="updateField('${m.member_id}', 'email', this.value, this)" placeholder="Email">
+      </td>
+    </tr>
+  `).join('');
+}
+
+async function updateField(memberId, field, value, inputElement) {
+  // Find member in local array and update it
+  const memIndex = members.findIndex(m => m.member_id === memberId);
+  if (memIndex !== -1) {
+    members[memIndex][field] = value;
+  }
+
+  // Visual feedback (flash green)
+  const originalBg = inputElement.style.backgroundColor;
+  inputElement.style.backgroundColor = '#d1fae5';
+  setTimeout(() => inputElement.style.backgroundColor = originalBg, 500);
+
+  if (field === 'voice_part') updateProgress();
+
+  // Save to Supabase
+  const { error } = await sb.from('members')
+    .update({ [field]: value || null, updated_at: new Date().toISOString() })
+    .eq('member_id', memberId);
+
+  if (error) {
+    console.error(error);
+    toast('Failed to save: ' + error.message, 'error');
+    // Revert UI
+    inputElement.style.backgroundColor = '#fee2e2';
+  }
+}
+
+function updateProgress() {
+  const total = members.length;
+  const assigned = members.filter(m => m.voice_part && m.voice_part.trim() !== '').length;
+  const pct = total ? Math.round(assigned / total * 100) : 0;
+  
+  document.getElementById('progressText').textContent = `${assigned} / ${total}`;
+  document.getElementById('progressFill').style.width = `${pct}%`;
+  
+  if (pct === 100) {
+    document.getElementById('progressFill').style.background = 'var(--green)';
+  } else if (pct > 0) {
+    document.getElementById('progressFill').style.background = 'var(--amber)';
+  } else {
+    document.getElementById('progressFill').style.background = '#cbd5e1';
+  }
+}
+
+// Initialize
+loadMembers();
+</script>
+</body></html>

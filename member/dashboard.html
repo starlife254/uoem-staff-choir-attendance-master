@@ -275,15 +275,6 @@ body{
 }
 .card-head h3{font-size:15px;font-weight:700;color:var(--text);letter-spacing:-.01em}
 .card-head p{font-size:12.5px;color:var(--muted);margin-top:2px}
-.card-head .card-action{
-  font-size:12.5px;
-  font-weight:600;
-  color:var(--brand);
-  text-decoration:none;
-  cursor:pointer;
-  display:flex;align-items:center;gap:4px;
-}
-.card-head .card-action:hover{color:var(--brand-dark)}
 
 /* KPI card */
 .kpi{
@@ -583,8 +574,6 @@ td strong{color:var(--text);font-weight:600}
 .alert-info{background:var(--brand-light);color:var(--brand-dark);border:1px solid #c7d2fe}
 .alert-warn{background:var(--amber-light);color:#92400e;border:1px solid #fde68a}
 
-/* Visibility */
-.hidden{display:none!important}
 /* Empty state */
 .empty{
   text-align:center;
@@ -755,7 +744,7 @@ td strong{color:var(--text);font-weight:600}
   <button class="nav-item" data-tab="history"><i class="ti ti-history"></i> My Attendance</button>
 
   <div class="nav-section">Actions</div>
-  <button class="nav-item" data-tab="apology"><i class="ti ti-mail-forward"></i> Submit Apology</button>
+  <button class="nav-item" data-tab="apology"><i class="ti ti-mail-forward"></i> Submit Apology / Leave</button>
 
   <div class="nav-section">Account</div>
   <button class="nav-item" data-tab="profile"><i class="ti ti-user-circle"></i> My Profile</button>
@@ -958,57 +947,66 @@ td strong{color:var(--text);font-weight:600}
   <div id="pane-apology" class="pane hidden">
     <div class="page">
       <div class="page-head">
-        <h2>Submit Apology</h2>
-        <p>Let the choir know in advance if you'll be late or absent.</p>
+        <h2>Submit Apology or Leave</h2>
+        <p>Let the choir know in advance if you'll be late, absent, or on leave.</p>
       </div>
 
       <div class="grid grid-2">
+        <!-- New Apology / Leave form -->
         <div class="card">
           <div class="card-head">
-            <div>
-              <h3>New apology</h3>
-              <p>Valid for any session day</p>
-            </div>
+            <div><h3>New request</h3><p>Valid for any session day</p></div>
           </div>
 
           <div class="alert alert-info">
             <i class="ti ti-info-circle"></i>
             <div>
-              <strong>Cutoff times:</strong> Late — 4:30 PM · Absent — 4:00 PM<br>
-              <span style="opacity:.85">Session: 5:00 PM – 7:00 PM</span>
+              <strong>Cutoff times (for single days):</strong> Late — 4:30 PM · Absent — 4:00 PM<br>
+              <span style="opacity:.85">Multi-day leaves can be submitted in advance at any time.</span>
             </div>
           </div>
 
           <div class="form-grid">
             <div class="field">
-              <label>Type</label>
-              <select id="apType">
-                <option value="late">Late arrival</option>
-                <option value="absent">Absent</option>
+              <label>Request Type</label>
+              <select id="apType" onchange="toggleLeaveDates()">
+                <option value="late">Late arrival (1 day)</option>
+                <option value="absent">Absent (1 day)</option>
+                <option value="leave">Leave (Multiple days)</option>
               </select>
             </div>
-            <div class="field">
+            
+            <!-- Single Date (for Late/Absent) -->
+            <div class="field" id="singleDateBox">
               <label>Date</label>
               <input type="date" id="apDate">
+            </div>
+
+            <!-- Date Range (for Leave) -->
+            <div class="field hidden" id="leaveStartBox">
+              <label>Start Date</label>
+              <input type="date" id="apStartDate">
+            </div>
+            <div class="field hidden" id="leaveEndBox">
+              <label>End Date</label>
+              <input type="date" id="apEndDate">
             </div>
           </div>
 
           <div class="field" style="margin-top:14px">
             <label>Reason *</label>
-            <textarea id="apReason" rows="4" placeholder="Briefly explain your reason…"></textarea>
+            <textarea id="apReason" rows="3" placeholder="Briefly explain your reason…"></textarea>
           </div>
 
           <button class="btn btn-primary" style="margin-top:16px" id="apologyBtn" onclick="submitApology()">
-            <i class="ti ti-send"></i> Submit Apology
+            <i class="ti ti-send"></i> Submit Request
           </button>
         </div>
 
+        <!-- History List -->
         <div class="card">
           <div class="card-head">
-            <div>
-              <h3>My apologies</h3>
-              <p>Submission history</p>
-            </div>
+            <div><h3>My requests</h3><p>Submission history</p></div>
           </div>
           <div id="apologyList">
             <div class="empty"><p>Loading…</p></div>
@@ -1077,23 +1075,17 @@ td strong{color:var(--text);font-weight:600}
 <div id="toastWrap"></div>
 
 <script>
-/* ============================================================
-   State
-   ============================================================ */
 let session, myMember, myProfile = {}, myAttendance = [];
 let chartInstance = null;
 
 const TAB_TITLES = {
   stats:     { title: 'Dashboard',       sub: '· Overview' },
   profile:   { title: 'My Profile',       sub: '· Personal details' },
-  apology:   { title: 'Submit Apology',   sub: '· In advance notice' },
+  apology:   { title: 'Requests',         sub: '· Apology / Leave' },
   history:   { title: 'Attendance',       sub: '· Full log' },
   committee: { title: 'Committee',        sub: '· Leadership' }
 };
 
-/* ============================================================
-   Toast
-   ============================================================ */
 function toast(msg, type = "info") {
   const wrap = document.getElementById('toastWrap');
   const el = document.createElement('div');
@@ -1105,9 +1097,6 @@ function toast(msg, type = "info") {
   setTimeout(() => el.remove(), 2800);
 }
 
-/* ============================================================
-   Sidebar & user menu
-   ============================================================ */
 function openSidebar() {
   document.getElementById('sidebar').classList.add('open');
   document.getElementById('overlay').classList.add('show');
@@ -1125,18 +1114,12 @@ function closeUserMenu() {
 }
 document.addEventListener('click', closeUserMenu);
 
-/* ============================================================
-   Logout
-   ============================================================ */
 async function doLogout() {
   if (!confirm("Sign out of Staff Choir?")) return;
   try { await sb.auth.signOut(); } catch (_) {}
   location.href = "../login.html";
 }
 
-/* ============================================================
-   Tab switching
-   ============================================================ */
 function switchTab(name) {
   if (!name) return;
   document.querySelectorAll('.nav-item, .bottom-nav a').forEach(x => {
@@ -1167,9 +1150,6 @@ document.querySelectorAll('[data-tab]').forEach(el => {
   });
 });
 
-/* ============================================================
-   Helpers
-   ============================================================ */
 const _initials = window.initials || function(name){
   if (!name) return '—';
   return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0,2);
@@ -1197,9 +1177,6 @@ function relTime(dateStr) {
   return _fmtDate(dateStr);
 }
 
-/* ============================================================
-   Boot
-   ============================================================ */
 async function boot() {
   try {
     session = await requireAuth("member");
@@ -1232,7 +1209,6 @@ async function boot() {
   if (!myMember) {
     document.getElementById('greeting').textContent = 'No member profile linked';
     document.getElementById('greetingSub').textContent = 'Contact an admin to link your account to a member record.';
-    document.getElementById('statsGrid')?.classList?.add?.('hidden');
     return;
   }
 
@@ -1257,9 +1233,6 @@ async function boot() {
   fillProfile();
 }
 
-/* ============================================================
-   Stats
-   ============================================================ */
 function renderStats() {
   const present = myAttendance.filter(a => a.status === 'Present').length;
   const late    = myAttendance.filter(a => a.status === 'Late').length;
@@ -1273,15 +1246,11 @@ function renderStats() {
   document.getElementById('kpiRate').textContent    = rate + '%';
 
   document.getElementById('kpiPresentFoot').textContent = total ? `out of ${total} sessions` : 'No records yet';
-  document.getElementById('kpiLateFoot').textContent    = 'Arrived after cutoff';
-  document.getElementById('kpiAbsentFoot').textContent  = 'Missed sessions';
   document.getElementById('kpiRateFoot').textContent    = rate >= 80 ? 'Excellent' : rate >= 60 ? 'Good' : 'Needs improvement';
 
-  // Streak & next session
   updateStreak();
   updateNextSession();
 
-  // Trend indicator
   const last7 = myAttendance.filter(a => {
     const d = new Date(a.date + 'T00:00:00');
     return (Date.now() - d) / 86400000 <= 7;
@@ -1300,7 +1269,6 @@ function renderStats() {
 }
 
 function updateStreak() {
-  // Sort ascending by date
   const sorted = [...myAttendance].sort((a, b) => a.date.localeCompare(b.date));
   let streak = 0;
   let current = null;
@@ -1320,14 +1288,11 @@ function updateStreak() {
       current = null;
     }
   }
-  // If last record is absent or missing, streak = 0
   if (!current) streak = 0;
 
   document.getElementById('streakValue').innerHTML = `${streak}<span>session${streak === 1 ? '' : 's'}</span>`;
-  document.getElementById('streakEmoji').textContent =
-    streak >= 10 ? '🔥' : streak >= 5 ? '⚡' : streak >= 2 ? '✨' : '🌱';
+  document.getElementById('streakEmoji').textContent = streak >= 10 ? '🔥' : streak >= 5 ? '⚡' : streak >= 2 ? '✨' : '🌱';
 
-  // Dots: last 7 records
   const last7 = sorted.slice(-7);
   const dots = document.getElementById('streakDots');
   dots.innerHTML = '';
@@ -1343,31 +1308,20 @@ function updateStreak() {
 }
 
 function updateNextSession() {
-  // Next upcoming regular day (any day = today or tomorrow)
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const cutoffMins = 17 * 60; // 5:00 PM session start
-
   let sessionDate = new Date(today);
   if (now.getHours() * 60 + now.getMinutes() >= 19 * 60) {
-    // After 7 PM — next session is tomorrow
     sessionDate.setDate(sessionDate.getDate() + 1);
   }
 
   const iso = sessionDate.toISOString().slice(0, 10);
   const isToday = iso === _todayISO();
 
-  document.getElementById('nsTitle').textContent = isToday
-    ? "Today's session"
-    : `${_dayName(iso)}, ${_fmtDate(iso)}`;
-  document.getElementById('nsBadge').innerHTML = isToday
-    ? '<i class="ti ti-clock-hour-4"></i> Starts at 5:00 PM'
-    : '<i class="ti ti-calendar-event"></i> Evening rehearsal';
+  document.getElementById('nsTitle').textContent = isToday ? "Today's session" : `${_dayName(iso)}, ${_fmtDate(iso)}`;
+  document.getElementById('nsBadge').innerHTML = isToday ? '<i class="ti ti-clock-hour-4"></i> Starts at 5:00 PM' : '<i class="ti ti-calendar-event"></i> Evening rehearsal';
 }
 
-/* ============================================================
-   Chart
-   ============================================================ */
 function drawChart() {
   const days = [];
   for (let i = 29; i >= 0; i--) {
@@ -1385,7 +1339,6 @@ function drawChart() {
   });
 
   if (chartInstance) chartInstance.destroy();
-
   const canvas = document.getElementById('myChart');
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
@@ -1425,40 +1378,22 @@ function drawChart() {
       layout: { padding: { top: 10, right: 10, bottom: 0, left: 0 } },
       scales: {
         y: {
-          beginAtZero: true,
-          max: 2,
-          ticks: {
-            stepSize: 1,
-            color: '#9ca3af',
-            font: { size: 11, weight: '500' },
-            callback: v => v === 2 ? 'Present' : v === 1 ? 'Late' : v === 0 ? 'Absent' : ''
-          },
+          beginAtZero: true, max: 2,
+          ticks: { stepSize: 1, color: '#9ca3af', font: { size: 11, weight: '500' }, callback: v => v === 2 ? 'Present' : v === 1 ? 'Late' : v === 0 ? 'Absent' : '' },
           grid: { color: '#f3f4f6', drawBorder: false },
           border: { display: false }
         },
         x: {
-          ticks: {
-            color: '#9ca3af',
-            font: { size: 10.5, weight: '500' },
-            maxRotation: 0,
-            autoSkip: true,
-            maxTicksLimit: 6
-          },
-          grid: { display: false },
-          border: { display: false }
+          ticks: { color: '#9ca3af', font: { size: 10.5, weight: '500' }, maxRotation: 0, autoSkip: true, maxTicksLimit: 6 },
+          grid: { display: false }, border: { display: false }
         }
       },
       plugins: {
         legend: { display: false },
         tooltip: {
-          backgroundColor: '#111827',
-          titleColor: '#fff',
-          bodyColor: '#fff',
-          titleFont: { size: 12, weight: '600' },
-          bodyFont: { size: 12 },
-          padding: 10,
-          cornerRadius: 8,
-          displayColors: false,
+          backgroundColor: '#111827', titleColor: '#fff', bodyColor: '#fff',
+          titleFont: { size: 12, weight: '600' }, bodyFont: { size: 12 },
+          padding: 10, cornerRadius: 8, displayColors: false,
           callbacks: {
             title: items => items[0].label,
             label: item => {
@@ -1475,9 +1410,6 @@ function drawChart() {
   });
 }
 
-/* ============================================================
-   Activity feed
-   ============================================================ */
 function renderActivity() {
   const list = document.getElementById('activityList');
   const recent = myAttendance.slice(0, 5);
@@ -1507,9 +1439,6 @@ function renderActivity() {
   }).join('');
 }
 
-/* ============================================================
-   Profile
-   ============================================================ */
 function fillProfile() {
   document.getElementById('pName').value  = myMember.name || '';
   document.getElementById('pMid').value   = myMember.member_id || '';
@@ -1530,11 +1459,8 @@ async function saveProfile() {
   btn.innerHTML = '<i class="ti ti-loader"></i> Saving…';
 
   const payload = {
-    user_id: session.user.id,
-    member_id: myMember.member_id,
-    full_name: myMember.name,
-    role: myProfile.role || 'member',
-    phone: document.getElementById('myPhone').value.trim(),
+    user_id: session.user.id, member_id: myMember.member_id, full_name: myMember.name,
+    role: myProfile.role || 'member', phone: document.getElementById('myPhone').value.trim(),
     emergency_contact: document.getElementById('eName').value.trim(),
     emergency_relationship: document.getElementById('eRel').value.trim(),
     emergency_phone: document.getElementById('ePhone').value.trim(),
@@ -1551,42 +1477,71 @@ async function saveProfile() {
   myProfile = { ...myProfile, ...payload };
 }
 
-/* ============================================================
-   Apologies
-   ============================================================ */
+// ---------- APOLOGY / LEAVE LOGIC ----------
+function toggleLeaveDates() {
+  const type = document.getElementById('apType').value;
+  const isLeave = type === 'leave';
+  
+  document.getElementById('singleDateBox').classList.toggle('hidden', isLeave);
+  document.getElementById('leaveStartBox').classList.toggle('hidden', !isLeave);
+  document.getElementById('leaveEndBox').classList.toggle('hidden', !isLeave);
+}
+
 async function submitApology() {
-  const date = document.getElementById('apDate').value;
   const type = document.getElementById('apType').value;
   const reason = document.getElementById('apReason').value.trim();
-  if (!date || !reason) return toast('Please fill in the date and reason', 'error');
-
-  if (date === _todayISO()) {
-    const now = new Date();
-    const nowMins = now.getHours() * 60 + now.getMinutes();
-    const lateCutoff = 16 * 60 + 30;
-    const absentCutoff = 16 * 60;
-    if (type === 'late'   && nowMins > lateCutoff)   return toast('Late cutoff (4:30 PM) has passed', 'error');
-    if (type === 'absent' && nowMins > absentCutoff) return toast('Absence cutoff (4:00 PM) has passed', 'error');
-  }
+  
+  if (!reason) return toast('Please provide a reason', 'error');
 
   const btn = document.getElementById('apologyBtn');
   btn.disabled = true;
   btn.innerHTML = '<i class="ti ti-loader"></i> Submitting…';
 
-  const { error } = await sb.from('apology_requests').insert({
-    member_id: myMember.member_id,
-    apology_type: type,
-    date,
-    session: 'Evening',
-    reason,
-    status: 'pending'
-  });
+    if (type === 'leave') {
+    // Handle Multi-day Leave
+    const start = document.getElementById('apStartDate').value;
+    const end = document.getElementById('apEndDate').value;
+    
+    if (!start || !end) {
+      btn.disabled = false; btn.innerHTML = '<i class="ti ti-send"></i> Submit Request';
+      return toast('Please select both start and end dates', 'error');
+    }
+    if (start > end) {
+      btn.disabled = false; btn.innerHTML = '<i class="ti ti-send"></i> Submit Request';
+      return toast('End date must be after start date', 'error');
+    }
+
+    // Generate list of dates
+    let dates = [];
+    let curr = new Date(start);
+    let last = new Date(end);
+    while (curr <= last) {
+      dates.push(curr.toISOString().slice(0, 10));
+      curr.setDate(curr.getDate() + 1);
+    }
+
+    // Create an "absent" apology for every day, STAMPING the end_date
+    const records = dates.map(d => ({
+      member_id: myMember.member_id,
+      apology_type: 'absent',
+      date: d,
+      end_date: end, // <--- THIS IS THE CRITICAL FIX
+      session: 'Evening',
+      reason: reason,
+      status: 'pending'
+    }));
+
+    const { error } = await sb.from('apology_requests').insert(records);
+    if (error) {
+      btn.disabled = false; btn.innerHTML = '<i class="ti ti-send"></i> Submit Request';
+      return toast(error.message, 'error');
+    }
+    toast(`Leave submitted for ${dates.length} days`, 'success');
+
+  }
 
   btn.disabled = false;
-  btn.innerHTML = '<i class="ti ti-send"></i> Submit Apology';
-
-  if (error) return toast(error.message, 'error');
-  toast('Apology submitted', 'success');
+  btn.innerHTML = '<i class="ti ti-send"></i> Submit Request';
   document.getElementById('apReason').value = '';
   loadApologies();
 }
@@ -1600,8 +1555,8 @@ async function loadApologies() {
     document.getElementById('apologyList').innerHTML = `
       <div class="empty">
         <div class="empty-icon"><i class="ti ti-mail-off"></i></div>
-        <h4>No apologies yet</h4>
-        <p>Submitted apologies will appear here</p>
+        <h4>No requests yet</h4>
+        <p>Submitted apologies and leaves will appear here</p>
       </div>`;
     return;
   }
@@ -1623,9 +1578,6 @@ async function loadApologies() {
     </div>`).join('');
 }
 
-/* ============================================================
-   History + PDF
-   ============================================================ */
 function renderHistory() {
   const tb = document.querySelector('#histTbl tbody');
   if (!myAttendance.length) {
@@ -1656,17 +1608,14 @@ function exportPDF() {
   const doc = new jsPDF();
   const brand = [79, 70, 229];
 
-  doc.setFontSize(20);
-  doc.setTextColor(...brand);
+  doc.setFontSize(20); doc.setTextColor(...brand);
   doc.text("Staff Choir — Attendance Record", 14, 22);
 
-  doc.setFontSize(11);
-  doc.setTextColor(90, 90, 90);
+  doc.setFontSize(11); doc.setTextColor(90, 90, 90);
   doc.text(`${myMember.name} · ${myMember.member_id}`, 14, 32);
   doc.text(`University of Embu`, 14, 39);
 
-  doc.setDrawColor(...brand);
-  doc.setLineWidth(0.6);
+  doc.setDrawColor(...brand); doc.setLineWidth(0.6);
   doc.line(14, 45, 196, 45);
 
   let y = 55;
@@ -1675,14 +1624,11 @@ function exportPDF() {
   const absent  = myAttendance.filter(a => a.status === 'Absent').length;
   const rate    = myAttendance.length ? Math.round((present + late) / myAttendance.length * 100) : 0;
 
-  doc.setTextColor(30, 30, 30);
-  doc.setFontSize(10);
+  doc.setTextColor(30, 30, 30); doc.setFontSize(10);
   doc.text(`Summary  ·  Present: ${present}   Late: ${late}   Absent: ${absent}   Rate: ${rate}%`, 14, y);
   y += 10;
 
-  doc.setDrawColor(220, 220, 220);
-  doc.line(14, y, 196, y);
-  y += 10;
+  doc.setDrawColor(220, 220, 220); doc.line(14, y, 196, y); y += 10;
 
   doc.setFontSize(10);
   myAttendance.forEach(a => {
@@ -1694,33 +1640,21 @@ function exportPDF() {
 
   const pages = doc.internal.getNumberOfPages();
   for (let i = 1; i <= pages; i++) {
-    doc.setPage(i);
-    doc.setFontSize(8);
-    doc.setTextColor(150, 150, 150);
+    doc.setPage(i); doc.setFontSize(8); doc.setTextColor(150, 150, 150);
     doc.text(`Generated ${new Date().toLocaleString()}  ·  Page ${i} of ${pages}`, 14, 292);
   }
-
   doc.save(`${myMember.member_id}-attendance.pdf`);
 }
 
-/* ============================================================
-   Committee
-   ============================================================ */
 async function loadCommittee() {
   const { data } = await sb.from('executive_committee').select('*').eq('is_active', true);
   const ORDER = ['Chairman','Vice Chair','Secretary','Treasurer','Disciplinarian','Welfare Secretary'];
   const sorted = (data || []).sort((a, b) => ORDER.indexOf(a.role) - ORDER.indexOf(b.role));
 
   if (!sorted.length) {
-    document.getElementById('committeeList').innerHTML = `
-      <div class="empty" style="grid-column:1/-1">
-        <div class="empty-icon"><i class="ti ti-users-off"></i></div>
-        <h4>No committee members</h4>
-        <p>Current leadership will appear here</p>
-      </div>`;
+    document.getElementById('committeeList').innerHTML = '<div class="empty" style="grid-column:1/-1"><div class="empty-icon"><i class="ti ti-users-off"></i></div><h4>No committee members</h4><p>Current leadership will appear here</p></div>';
     return;
   }
-
   document.getElementById('committeeList').innerHTML = sorted.map(e => `
     <div class="committee-card">
       <div class="committee-avatar">${_initials(e.name)}</div>
@@ -1732,10 +1666,9 @@ async function loadCommittee() {
     </div>`).join('');
 }
 
-/* ============================================================
-   Init
-   ============================================================ */
 document.getElementById('apDate').value = _todayISO();
+document.getElementById('apStartDate').value = _todayISO();
+document.getElementById('apEndDate').value = _todayISO();
 boot();
 </script>
 </body>

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>𝄞</text></svg>">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>𝄞</text></svg>">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Mark Attendance — Staff Choir</title>
@@ -358,7 +358,9 @@
     .warn.lock { background: #fee2e2; border-left-color: var(--red); color: #991b1b; }
     .warn.lock a { color: #991b1b; text-decoration: underline; }
 
-    .bulk-bar { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+    .bulk-bar { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; align-items: center; }
+    .bulk-group { display: flex; gap: 6px; background: #fff; padding: 4px; border-radius: 10px; border: 1px solid var(--border); }
+    
     .voice-group { margin-bottom: 18px; }
     .voice-group h4 {
       font-size: 13px;
@@ -382,6 +384,18 @@
       border-color: #e2e8f0;
     }
     .att-table.locked { opacity: .75; }
+
+    /* Checkbox styling */
+    input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+      accent-color: var(--primary);
+    }
+    input[type="checkbox"]:disabled {
+      cursor: not-allowed;
+      opacity: 0.5;
+    }
 
     .save-bar {
       position: fixed;
@@ -435,7 +449,8 @@
     <a class="nav-item" href="apologies.html"><i class="ti ti-mail"></i> Apologies <span class="badge" id="apologyBadge">0</span></a>
     <a class="nav-item" href="members.html"><i class="ti ti-users"></i> Members</a>
     <a class="nav-item" href="manage-members.html"><i class="ti ti-user-cog"></i> Manage Members</a>
-    
+    <a class="nav-item" href="admin-communications.html"><i class="ti ti-user-cog"></i> Announcement</a>
+  
     <a class="nav-item" href="executive.html"><i class="ti ti-crown"></i> Executive</a>
     <div class="sidebar-foot">
       <a class="nav-item" href="#" onclick="logout();return false;"><i class="ti ti-logout"></i> Logout</a>
@@ -482,11 +497,25 @@
     </div>
 
     <div id="attendanceZone" style="display:none">
+      <!-- UPDATED BULK ACTIONS BAR -->
       <div class="bulk-bar">
-        <button class="btn success sm" onclick="bulkSet('Present')"><i class="ti ti-check"></i> All Present</button>
-        <button class="btn amber sm" onclick="bulkSet('Late')"><i class="ti ti-clock"></i> All Late</button>
-        <button class="btn ghost sm" onclick="bulkSet('')"><i class="ti ti-eraser"></i> Clear All</button>
+        <div class="bulk-group">
+          <button class="btn success sm" onclick="bulkSet('Present')"><i class="ti ti-checks"></i> All Present</button>
+          <button class="btn amber sm" onclick="bulkSet('Late')"><i class="ti ti-clock"></i> All Late</button>
+          <button class="btn danger sm" onclick="bulkSet('Absent')"><i class="ti ti-x"></i> All Absent</button>
+        </div>
+        
+        <div class="bulk-group">
+          <button class="btn ghost sm" onclick="markRemainingAbsent()"><i class="ti ti-user-exclamation"></i> Remaining → Absent</button>
+        </div>
+
+        <div class="bulk-group">
+          <button class="btn ghost sm" onclick="markSelected('Present')"><i class="ti ti-check"></i> Selected → Present</button>
+          <button class="btn ghost sm" onclick="markSelected('Absent')"><i class="ti ti-x"></i> Selected → Absent</button>
+          <button class="btn ghost sm" onclick="markSelected('')"><i class="ti ti-eraser"></i> Clear Selected</button>
+        </div>
       </div>
+      
       <div id="tableArea"></div>
     </div>
 
@@ -635,11 +664,20 @@
             <h4>${p} (${list.length})</h4>
             <div class="att-table${saveLocked ? ' locked' : ''}">
               <table>
-                <thead><tr><th>Name</th><th>Department</th><th>Status</th><th>Apology</th></tr></thead>
+                <thead>
+                  <tr>
+                    <th style="width: 40px;"><input type="checkbox" id="check-${p}" onchange="toggleVoiceGroup('${p}', this.checked)" ${saveLocked ? 'disabled' : ''} title="Select entire group"></th>
+                    <th>Name</th>
+                    <th>Department</th>
+                    <th>Status</th>
+                    <th>Apology</th>
+                  </tr>
+                </thead>
                 <tbody>
                   ${list.map(m => {
                     const cur = currentMap[m.member_id] || {};
                     return `<tr>
+                      <td><input type="checkbox" class="member-check" data-mid="${m.member_id}" ${saveLocked ? 'disabled' : ''}></td>
                       <td><strong>${m.name}</strong><br><span style="font-size:11px;color:var(--muted)">${m.member_id}</span></td>
                       <td style="font-size:12px;color:var(--muted)">${m.department || '—'}</td>
                       <td>
@@ -661,6 +699,24 @@
       document.getElementById('tableArea').innerHTML = html || '<p style="color:var(--muted)">No active members.</p>';
     }
 
+    function toggleVoiceGroup(voicePart, isChecked) {
+      document.querySelectorAll('.member-check').forEach(cb => {
+        const mid = cb.dataset.mid;
+        const member = members.find(m => m.member_id === mid);
+        if (member && member.voice_part === voicePart) {
+          cb.checked = isChecked;
+        }
+      });
+    }
+
+    function getSelectedMembers() {
+      const selected = [];
+      document.querySelectorAll('.member-check:checked').forEach(cb => {
+        selected.push(cb.dataset.mid);
+      });
+      return selected;
+    }
+
     function setStatus(sel) {
       if (saveLocked) {
         toast(lockReason, 'error');
@@ -679,6 +735,42 @@
       members.forEach(m => { currentMap[m.member_id] = { ...(currentMap[m.member_id] || {}), status }; });
       renderTable();
       updateStats();
+    }
+
+    function markRemainingAbsent() {
+      if (saveLocked) return toast(lockReason, 'error');
+      members.forEach(m => {
+        // Only update if they are currently unmarked (blank)
+        if (!currentMap[m.member_id]?.status) {
+          currentMap[m.member_id] = { ...(currentMap[m.member_id] || {}), status: 'Absent' };
+        }
+      });
+      renderTable();
+      updateStats();
+      toast('All remaining unmarked members set to Absent', 'success');
+    }
+
+    function markSelected(status) {
+      if (saveLocked) return toast(lockReason, 'error');
+      const selected = getSelectedMembers();
+      
+      if (!selected.length) {
+        return toast('Please select at least one member using the checkboxes.', 'error');
+      }
+
+      selected.forEach(mid => {
+        currentMap[mid] = { ...(currentMap[mid] || {}), status };
+      });
+      
+      // Uncheck after applying
+      document.querySelectorAll('.member-check').forEach(cb => cb.checked = false);
+      document.querySelectorAll('input[type="checkbox"][id^="check-"]').forEach(cb => cb.checked = false);
+
+      renderTable();
+      updateStats();
+      
+      const action = status === '' ? 'cleared' : `marked as ${status}`;
+      toast(`Successfully ${action} for ${selected.length} member(s).`, 'success');
     }
 
     function updateStats() {
@@ -817,6 +909,9 @@
     window.closeModal = closeModal;
     window.addSpecial = addSpecial;
     window.deleteSpecial = deleteSpecial;
+    window.markRemainingAbsent = markRemainingAbsent;
+    window.markSelected = markSelected;
+    window.toggleVoiceGroup = toggleVoiceGroup;
   </script>
 </body>
 </html>

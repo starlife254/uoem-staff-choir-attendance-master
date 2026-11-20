@@ -74,7 +74,7 @@ body.sidebar-locked{overflow:hidden}
 .btn.success{background:var(--green)}
 .btn.amber{background:var(--amber)}
 .btn.sm{padding:6px 10px;font-size:12px}
-.card{background:var(--surface);border-radius:12px;padding:20px;border:1px solid var(--border);box-shadow:0 1px 3px rgba(0,0,0,.03)}
+.card{background:var(--surface);border-radius:12px;padding:20px;border:1px solid var(--border);box-shadow:0 1px 3px rgba(0,0,0,.03); margin-bottom:16px;}
 .grid{display:grid;gap:16px}
 .kpis{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
 .kpi{background:var(--surface);border-radius:12px;padding:20px;border:1px solid var(--border)}
@@ -130,6 +130,10 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--primary)
   <a class="nav-item" href="analytics.html"><i class="ti ti-chart-line"></i> Analytics</a>
   <div class="nav-group">Management</div>
   <a class="nav-item" href="apologies.html"><i class="ti ti-mail"></i> Apologies <span class="badge" id="apologyBadge">0</span></a>
+  
+  <!-- ADDED ANNOUNCEMENTS LINK -->
+  <a class="nav-item" href="admin-communications.html"><i class="ti ti-speakerphone"></i> Announcements</a>
+  
   <a class="nav-item" href="members.html"><i class="ti ti-users"></i> Members</a>
   <a class="nav-item" href="manage-members.html"><i class="ti ti-user-cog"></i> Manage Members</a>
 
@@ -168,10 +172,14 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--primary)
         <a href="mark-attendance.html" class="btn"><i class="ti ti-checklist"></i> Mark Attendance</a>
         <a href="apologies.html" class="btn amber"><i class="ti ti-mail"></i> Review Apologies</a>
         <a href="reports.html" class="btn ghost"><i class="ti ti-file-analytics"></i> Reports</a>
+        <a href="admin-communications.html" class="btn ghost"><i class="ti ti-speakerphone"></i> Announcements</a>
         <a href="manage-members.html" class="btn ghost"><i class="ti ti-user-plus"></i> Manage Members</a>
       </div>
     </div>
+  </div>
 
+  <!-- FIXED HTML STRUCTURE HERE (Moved inside the main grid) -->
+  <div class="grid" style="grid-template-columns:1fr;margin-top:16px">
     <div class="card">
       <h3 style="font-size:15px;margin-bottom:14px"><i class="ti ti-calendar"></i> Today's Session — <span id="todayLabel"></span></h3>
       <div id="sessionBreakdown">Loading…</div>

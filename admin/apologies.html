@@ -222,7 +222,7 @@ async function loadApologies() {
   
   const fStatus = document.getElementById('fStatus').value;
   const fType = document.getElementById('fType').value;
-  let q = sb.from('apology_requests').select('*').order('date', { ascending: false }).order('created_at', { ascending: false });
+  let q = sb.from('apology_requests').select('*').order('date', { ascending: true }).order('created_at', { ascending: false });
   
   if (fStatus) q = q.eq('status', fStatus);
   if (fType) q = q.eq('apology_type', fType);
@@ -250,14 +250,17 @@ async function loadApologies() {
   const { data: mems } = await sb.from('members').select('member_id,name,voice_part,department').in('member_id', ids);
   const map = Object.fromEntries((mems || []).map(m => [m.member_id, m]));
 
-  // --- GROUPING LOGIC FOR LEAVES ---
+  // --- BULLETPROOF GROUPING LOGIC ---
   const grouped = [];
   const leaveMap = {};
 
   apologies.forEach(a => {
-    // We group ONLY if it's an absent apology AND has an end_date
-    if (a.apology_type === 'absent' && a.end_date) {
-      const key = `${a.member_id}_${a.date}_${a.end_date}`;
+    // If it's a multi-day leave OR it shares a reason with other dates
+    const isMultiDay = (a.apology_type === 'absent' && a.end_date) || (a.apology_type === 'absent' && a.reason);
+    
+    if (isMultiDay) {
+      // Group by Member + Reason + Status to link the days together
+      const key = `${a.member_id}_${a.reason}_${a.status}`;
       
       if (!leaveMap[key]) {
         leaveMap[key] = {
@@ -265,7 +268,7 @@ async function loadApologies() {
           key: key,
           member_id: a.member_id,
           start_date: a.date,
-          end_date: a.end_date,
+          end_date: a.end_date || a.date,
           reason: a.reason,
           status: a.status,
           created_at: a.created_at,
@@ -277,10 +280,11 @@ async function loadApologies() {
       } else {
         leaveMap[key].ids.push(a.id);
         leaveMap[key].dates.push(a.date);
-        if (a.status === 'pending') leaveMap[key].status = 'pending';
+        // Update end date to the latest date in the group
+        if (a.date > leaveMap[key].end_date) leaveMap[key].end_date = a.date;
       }
     } else {
-      // Standard single-day apology
+      // Standard single-day apology (Late)
       grouped.push({
         is_group: false,
         id: a.id,
@@ -308,7 +312,8 @@ async function loadApologies() {
     // Type Pill
     let typePill;
     if (item.is_group) {
-      typePill = '<span class="pill blue"><i class="ti ti-calendar-event"></i> Leave Request</span>';
+      const days = item.dates.length;
+      typePill = `<span class="pill blue"><i class="ti ti-calendar-event"></i> Leave Request (${days} days)</span>`;
     } else {
       typePill = item.type === 'late'
         ? '<span class="pill amber"><i class="ti ti-clock"></i> Late</span>'
@@ -325,8 +330,7 @@ async function loadApologies() {
     // Date Display
     let dateDisplay = '';
     if (item.is_group) {
-      const days = item.ids.length; // Number of days approved
-      dateDisplay = `<i class="ti ti-calendar"></i> <strong>${fmtDate(item.start_date)}</strong> to <strong>${fmtDate(item.end_date)}</strong> (${days} days)`;
+      dateDisplay = `<i class="ti ti-calendar"></i> <strong>${fmtDate(item.start_date)}</strong> to <strong>${fmtDate(item.end_date)}</strong>`;
     } else {
       dateDisplay = `<i class="ti ti-calendar"></i> ${fmtDate(item.start_date)} (${dayName(item.start_date)})`;
     }
@@ -337,8 +341,8 @@ async function loadApologies() {
       if (item.is_group) {
         actionButtons = `
           <div class="actions-row">
-            <button class="btn success sm" onclick="decideGroup('${item.key}', 'approved')"><i class="ti ti-checks"></i> Approve All ${item.ids.length} Days</button>
-            <button class="btn danger sm" onclick="decideGroup('${item.key}', 'rejected')"><i class="ti ti-x"></i> Reject All</button>
+            <button class="btn success sm" onclick="decideGroup('${item.key}', 'approved')"><i class="ti ti-checks"></i> Approve Entire Leave</button>
+            <button class="btn danger sm" onclick="decideGroup('${item.key}', 'rejected')"><i class="ti ti-x"></i> Reject Entire Leave</button>
           </div>`;
       } else {
         actionButtons = `
@@ -365,13 +369,12 @@ async function loadApologies() {
         </div>
         <div style="font-size:12px;color:var(--muted);margin-bottom:8px">
           ${dateDisplay} · Submitted ${new Date(item.created_at).toLocaleString()}
-          <br><i class="ti ti-clock"></i> Session: 5:00 PM – 7:00 PM
         </div>
         <div class="reason-box"><strong>Reason:</strong> ${item.reason}</div>
         ${item.admin_notes ? `<div style="font-size:12px;color:var(--muted);margin-bottom:8px"><strong>Admin note:</strong> ${item.admin_notes}</div>` : ''}
         
         ${showActions ? `
-          <textarea id="${noteId}" placeholder="Optional admin note…" rows="2" style="width:100%;margin-bottom:8px"></textarea>
+          <textarea id="${noteId}" placeholder="Optional admin note…" rows="2" style="width:100%;margin-bottom:8px; border: 1px solid var(--border); border-radius: 8px; padding: 8px;"></textarea>
           ${actionButtons}` : ''}
       </div>`;
   }).join('');
@@ -398,22 +401,25 @@ async function decideSingle(id, status) {
 async function decideGroup(key, status) {
   const note = document.getElementById('note-' + key)?.value || '';
   
-  const [memberId, start, end] = key.split('_');
-  
-  if (!confirm(`Are you sure you want to ${status === 'approved' ? 'approve' : 'reject'} the entire leave from ${fmtDate(start)} to ${fmtDate(end)}?`)) return;
+  // Key format is: memberId_reason_status
+  const parts = key.split('_');
+  const memberId = parts[0];
+  const reason = parts[1];
+  const currentStatus = parts[2];
 
-  // Update all rows matching this leave group
+  if (!confirm(`Are you sure you want to ${status === 'approved' ? 'approve' : 'reject'} this entire leave request?`)) return;
+
+  // Update all rows matching this member + reason + current status
   const { data: rows, error } = await sb.from('apology_requests')
     .update({ status, admin_notes: note, updated_at: new Date().toISOString() })
     .eq('member_id', memberId)
-    .eq('date', start)
-    .eq('end_date', end)
+    .eq('reason', reason)
+    .eq('status', currentStatus)
     .select();
 
   if (error) return toast(error.message, 'error');
 
   if (status === 'approved' && rows && rows.length > 0) {
-    // We only need to update attendance for the specific dates that exist
     const dates = rows.map(r => r.date);
     await updateAttendance(memberId, dates, 'absent', 'Evening');
   }
@@ -421,7 +427,6 @@ async function decideGroup(key, status) {
   toast(`Leave ${status}`, 'success');
   loadApologies();
 }
-
 // Helper: Update attendance table for one or multiple dates
 async function updateAttendance(memberId, dates, type, session) {
   const attStatus = type === 'late' ? 'Late' : 'Absent';

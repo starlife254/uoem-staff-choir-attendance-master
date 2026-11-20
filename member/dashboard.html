@@ -1077,6 +1077,7 @@ td strong{color:var(--text);font-weight:600}
 <script>
 let session, myMember, myProfile = {}, myAttendance = [];
 let chartInstance = null;
+let isSubmitting = false;
 
 const TAB_TITLES = {
   stats:     { title: 'Dashboard',       sub: '· Overview' },
@@ -1488,68 +1489,88 @@ function toggleLeaveDates() {
 }
 
 async function submitApology() {
+  if (isSubmitting) return;
+  
   const type = document.getElementById('apType').value;
   const reason = document.getElementById('apReason').value.trim();
   
   if (!reason) return toast('Please provide a reason', 'error');
 
   const btn = document.getElementById('apologyBtn');
-  btn.disabled = true;
-  btn.innerHTML = '<i class="ti ti-loader"></i> Submitting…';
+  
+  let dates = [];
+  let endDateField = null;
 
-    if (type === 'leave') {
-    // Handle Multi-day Leave
+  if (type === 'leave') {
     const start = document.getElementById('apStartDate').value;
     const end = document.getElementById('apEndDate').value;
     
-    if (!start || !end) {
-      btn.disabled = false; btn.innerHTML = '<i class="ti ti-send"></i> Submit Request';
-      return toast('Please select both start and end dates', 'error');
-    }
-    if (start > end) {
-      btn.disabled = false; btn.innerHTML = '<i class="ti ti-send"></i> Submit Request';
-      return toast('End date must be after start date', 'error');
-    }
+    if (!start || !end) return toast('Please select both start and end dates', 'error');
+    if (start > end) return toast('End date must be after start date', 'error');
 
-    // Generate list of dates
-    let dates = [];
     let curr = new Date(start);
     let last = new Date(end);
     while (curr <= last) {
       dates.push(curr.toISOString().slice(0, 10));
       curr.setDate(curr.getDate() + 1);
     }
+    endDateField = end;
+  } else {
+    const date = document.getElementById('apDate').value;
+    if (!date) return toast('Please select a date', 'error');
+    dates.push(date);
+  }
 
-    // Create an "absent" apology for every day, STAMPING the end_date
+  // Set loading state
+  isSubmitting = true;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="ti ti-loader" style="animation:spin 1s linear infinite"></i> Submitting…';
+
+  try {
     const records = dates.map(d => ({
       member_id: myMember.member_id,
-      apology_type: 'absent',
+      apology_type: type === 'leave' ? 'absent' : type,
       date: d,
-      end_date: end, // <--- THIS IS THE CRITICAL FIX
+      end_date: endDateField, // Only populated for leave
       session: 'Evening',
       reason: reason,
       status: 'pending'
     }));
 
     const { error } = await sb.from('apology_requests').insert(records);
-    if (error) {
-      btn.disabled = false; btn.innerHTML = '<i class="ti ti-send"></i> Submit Request';
-      return toast(error.message, 'error');
+    if (error) throw error;
+
+    toast(`Successfully submitted for ${dates.length} day(s)`, 'success');
+    
+    // Reset form
+    document.getElementById('apReason').value = '';
+    if (type === 'leave') {
+      document.getElementById('apStartDate').value = _todayISO();
+      document.getElementById('apEndDate').value = _todayISO();
+    } else {
+      document.getElementById('apDate').value = _todayISO();
     }
-    toast(`Leave submitted for ${dates.length} days`, 'success');
+    
+    // Refresh list
+    loadApologies();
 
+  } catch (error) {
+    toast(error.message, 'error');
+  } finally {
+    isSubmitting = false;
+    btn.disabled = false;
+    btn.innerHTML = '<i class="ti ti-send"></i> Submit Request';
   }
-
-  btn.disabled = false;
-  btn.innerHTML = '<i class="ti ti-send"></i> Submit Request';
-  document.getElementById('apReason').value = '';
-  loadApologies();
 }
 
 async function loadApologies() {
-  const { data } = await sb.from('apology_requests')
-    .select('*').eq('member_id', myMember.member_id)
-    .order('created_at', { ascending: false });
+  // Fetch all requests for this member
+  const { data, error } = await sb.from('apology_requests')
+    .select('*')
+    .eq('member_id', myMember.member_id)
+    .order('date', { ascending: true });
+
+  if (error) return toast(error.message, 'error');
 
   if (!data || !data.length) {
     document.getElementById('apologyList').innerHTML = `
@@ -1561,21 +1582,106 @@ async function loadApologies() {
     return;
   }
 
-  document.getElementById('apologyList').innerHTML = data.map(a => `
-    <div style="padding:14px 0;border-bottom:1px solid var(--border-soft)">
-      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:6px">
-        <div style="display:flex;align-items:center;gap:8px">
-          <span class="pill ${a.apology_type === 'late' ? 'amber' : 'red'}">
-            <i class="ti ${a.apology_type === 'late' ? 'ti-clock' : 'ti-x'}"></i>
-            ${a.apology_type === 'late' ? 'Late' : 'Absent'}
-          </span>
-          <strong style="font-size:13.5px">${_fmtDate(a.date)}</strong>
+  // --- BULLETPROOF GROUPING LOGIC (Matches Admin Side) ---
+  const groupedRequests = [];
+  const leaveMap = {};
+
+  data.forEach(a => {
+    // Treat as a multi-day leave if it's an 'absent' request AND has a reason
+    // We use the created_at timestamp and reason to bind them, preventing accidental merging of separate requests.
+    if (a.apology_type === 'absent' && a.reason) {
+      // The key groups by member, reason, status, and the exact submission time
+      const key = `${a.member_id}_${a.reason}_${a.status}_${a.created_at}`;
+      
+      if (!leaveMap[key]) {
+        leaveMap[key] = {
+          is_group: true,
+          start_date: a.date,
+          end_date: a.end_date || a.date, // Fallback if end_date is null
+          reason: a.reason,
+          status: a.status,
+          created_at: a.created_at,
+          admin_notes: a.admin_notes,
+          days: 1
+        };
+        groupedRequests.push(leaveMap[key]);
+      } else {
+        leaveMap[key].days += 1;
+        // Ensure the end_date reflects the latest date in the group
+        if (a.date > leaveMap[key].end_date) {
+          leaveMap[key].end_date = a.date;
+        }
+        // If any day is pending, the whole group is pending
+        if (a.status === 'pending') leaveMap[key].status = 'pending';
+      }
+    } else {
+      // Standard single-day apology (Late)
+      groupedRequests.push({
+        is_group: false,
+        date: a.date,
+        type: a.apology_type,
+        reason: a.reason,
+        status: a.status,
+        created_at: a.created_at,
+        admin_notes: a.admin_notes
+      });
+    }
+  });
+
+  // Sort by submission date (newest first)
+  groupedRequests.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+  // --- RENDER HTML ---
+  document.getElementById('apologyList').innerHTML = groupedRequests.map(item => {
+    const statusColor = item.status === 'pending' ? 'gray' : item.status === 'approved' ? 'green' : 'red';
+    
+    let typePill, dateDisplay;
+    
+    if (item.is_group) {
+      typePill = `<span class="pill brand"><i class="ti ti-calendar-event"></i> Leave Application</span>`;
+      
+      // If the leave is just 1 day, don't show the range
+      if (item.days === 1) {
+        dateDisplay = `<strong>${_fmtDate(item.start_date)}</strong> <span style="color:var(--muted);font-size:12px;font-weight:400;margin-left:6px;">(1 Day)</span>`;
+      } else {
+        dateDisplay = `
+          <strong>${_fmtDate(item.start_date)}</strong> 
+          <span style="color:var(--muted);margin:0 4px;">–</span> 
+          <strong>${_fmtDate(item.end_date)}</strong> 
+          <span style="color:var(--muted);font-size:12px;font-weight:400;margin-left:6px;">(${item.days} Days)</span>`;
+      }
+    } else {
+      typePill = item.type === 'late' 
+        ? `<span class="pill amber"><i class="ti ti-clock"></i> Late</span>`
+        : `<span class="pill red"><i class="ti ti-x"></i> Absent</span>`;
+      dateDisplay = `<strong>${_fmtDate(item.date)}</strong>`;
+    }
+
+    return `
+      <div style="padding:16px 0;border-bottom:1px solid var(--border-soft); width: 100%; box-sizing: border-box;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:8px">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            ${typePill}
+            <span>${dateDisplay}</span>
+          </div>
+          <span class="pill ${statusColor}">${item.status.toUpperCase()}</span>
         </div>
-        <span class="pill ${a.status === 'pending' ? 'gray' : a.status === 'approved' ? 'green' : 'red'}">${a.status}</span>
+        
+        <div style="font-size:13px;color:var(--text-soft);line-height:1.5;margin-bottom:6px;">
+          <strong>Reason:</strong> ${item.reason}
+        </div>
+        
+        <div style="font-size:11px;color:var(--muted);">
+          <i class="ti ti-clock"></i> Submitted on ${new Date(item.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} at ${new Date(item.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+        </div>
+
+        ${item.admin_notes ? `
+          <div style="font-size:12px;color:var(--brand-dark);margin-top:10px;padding:8px 12px;background:var(--brand-light);border-radius:8px">
+            <i class="ti ti-message-circle"></i> <strong>Admin:</strong> ${item.admin_notes}
+          </div>` : ''}
       </div>
-      <div style="font-size:13px;color:var(--text-soft);line-height:1.5">${a.reason}</div>
-      ${a.admin_notes ? `<div style="font-size:12px;color:var(--brand);margin-top:8px;padding:8px 10px;background:var(--brand-light);border-radius:7px"><strong>Admin:</strong> ${a.admin_notes}</div>` : ''}
-    </div>`).join('');
+    `;
+  }).join('');
 }
 
 function renderHistory() {

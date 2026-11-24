@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Communications & Schedule — Admin</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <title>Communications & Resources — Admin</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="../supabase-config.js"></script>
@@ -48,19 +48,25 @@
     .hamburger { display: none; background: none; border: none; font-size: 22px; color: var(--text); cursor: pointer; }
 
     /* Cards & Forms */
-    .card { background: var(--surface); border-radius: 12px; padding: 20px; border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(0,0,0,.03); margin-bottom: 20px; max-width: 800px; margin-inline: auto; }
-    .card h2 { font-size: 18px; margin-bottom: 16px; font-weight: 700; }
+    .card { background: var(--surface); border-radius: 12px; padding: 20px; border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(0,0,0,.03); margin-bottom: 20px; max-width: 900px; margin-inline: auto; }
+    .card h2 { font-size: 18px; margin-bottom: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
     
     input, textarea, select { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px; font-family: inherit; font-size: 13px; background: #fff; color: var(--text); }
     input:focus, textarea:focus, select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); }
     
     .btn { padding: 10px 20px; background: var(--primary); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-family: inherit; display: inline-flex; align-items: center; gap: 6px; transition: .15s; }
     .btn:hover { background: var(--primary-dark); }
+    .btn.danger { background: var(--red); }
     .btn.sm { padding: 6px 12px; font-size: 12px; }
 
+    /* Schedule Styles */
     .schedule-item { padding: 16px; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 12px; background: var(--bg); }
     .schedule-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px; }
     .schedule-grid label { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; display: block; }
+
+    /* Music Score Styles */
+    .score-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; background: var(--bg); }
+    #uploadStatus { font-size: 13px; color: var(--primary); margin-top: 10px; display: none; }
 
     .mobile-nav { display: none; }
 
@@ -94,8 +100,8 @@
     <div class="nav-group">Management</div>
     <a class="nav-item" href="apologies.html"><i class="ti ti-mail"></i> Apologies <span class="badge" id="apologyBadge">0</span></a>
     
-    <!-- ACTIVE STATE ADDED -->
-    <a class="nav-item active" href="admin-communications.html"><i class="ti ti-speakerphone"></i> Announcements</a>
+    <!-- ACTIVE STATE FOR THIS PAGE -->
+    <a class="nav-item active" href="admin-communications.html"><i class="ti ti-speakerphone"></i> Communications & Resources</a>
     
     <a class="nav-item" href="members.html"><i class="ti ti-users"></i> Members</a>
     <a class="nav-item" href="manage-members.html"><i class="ti ti-user-cog"></i> Manage Members</a>
@@ -112,7 +118,7 @@
     <div class="topbar">
       <div style="display:flex;align-items:center;gap:12px">
         <button class="hamburger" onclick="openSidebar()"><i class="ti ti-menu-2"></i></button>
-        <h1 id="pageTitle">Communications</h1>
+        <h1 id="pageTitle">Communications & Resources</h1>
       </div>
       <div class="user">
         <div class="avatar" id="userAvatar">A</div>
@@ -120,15 +126,16 @@
       </div>
     </div>
 
-    <!-- PAGE CONTENT -->
+    <!-- 1. SCHEDULE MANAGEMENT -->
     <div class="card">
-      <h2>📅 Manage Rehearsal Schedule</h2>
+      <h2><i class="ti ti-calendar"></i> Manage Rehearsal Schedule</h2>
       <p style="font-size:13px; color:var(--muted); margin-bottom:16px;">Changes made here immediately reflect on the member dashboard's "Next Session" card.</p>
       <div id="scheduleList">Loading...</div>
     </div>
 
+    <!-- 2. ANNOUNCEMENTS -->
     <div class="card">
-      <h2>📢 Post New Announcement</h2>
+      <h2><i class="ti ti-speakerphone"></i> Post New Announcement</h2>
       <input type="text" id="aTitle" placeholder="Announcement Title">
       <textarea id="aContent" rows="3" placeholder="Content..."></textarea>
       <select id="aCategory">
@@ -138,6 +145,32 @@
         <option value="Rehearsal">Rehearsal</option>
       </select>
       <button class="btn" onclick="postAnnouncement()"><i class="ti ti-send"></i> Publish Announcement</button>
+    </div>
+
+    <!-- 3. MUSIC SCORES -->
+    <div class="card">
+      <h2><i class="ti ti-file-music"></i> Upload Music Score</h2>
+      <input type="text" id="scoreTitle" placeholder="Song Title (e.g., Bwana Ni Mchungaji Wangu)">
+      
+      <select id="scoreVoice">
+        <option value="All">All Voice Parts</option>
+        <option value="Soprano">Soprano</option>
+        <option value="Alto">Alto</option>
+        <option value="Tenor">Tenor</option>
+        <option value="Bass">Bass</option>
+        <option value="Piano">Piano Accompaniment</option>
+      </select>
+
+      <input type="file" id="scoreFile" accept=".pdf,image/*">
+      
+      <button class="btn" onclick="uploadScore()" id="uploadBtn">
+        <i class="ti ti-cloud-upload"></i> Upload to Cloudinary
+      </button>
+      <div id="uploadStatus">Uploading... Please wait.</div>
+
+      <hr style="margin: 20px 0; border: none; border-top: 1px solid var(--border);">
+      <h3 style="font-size: 14px; margin-bottom: 12px;">Available Scores</h3>
+      <div id="scoreList">Loading...</div>
     </div>
   </main>
 
@@ -149,6 +182,10 @@
   </nav>
 
   <script>
+    // ✅ USING THE WORKING CLOUDINARY DETAILS FROM YOUR OLD PROJECT
+    const CLOUDINARY_CLOUD_NAME = "surgtbdr"; 
+    const CLOUDINARY_UPLOAD_PRESET = "uoem_choir_uploads"; 
+
     // ---------- Mobile sidebar ----------
     function openSidebar() {
       document.getElementById('sidebar').classList.add('open');
@@ -175,14 +212,10 @@
     // ── SCHEDULE LOGIC ──
     async function loadSchedule() {
       const { data, error } = await sb.from('choir_schedule').select('*').order('day_of_week');
-      if (error) {
-        console.error(error);
-        document.getElementById('scheduleList').innerHTML = '<p style="color:red">Error loading schedule.</p>';
-        return;
-      }
+      if (error) return console.error(error);
       
       if (!data || !data.length) {
-        document.getElementById('scheduleList').innerHTML = '<p style="color:#64748b">No schedule configured.</p>';
+        document.getElementById('scheduleList').innerHTML = '<p style="color:var(--muted)">No schedule configured.</p>';
         return;
       }
 
@@ -192,7 +225,8 @@
             <div>
               <label>Day of Week</label>
               <select id="day-${s.id}">
-               ${['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(d => `<option value="${d}" ${s.day_of_week === d ? 'selected' : ''}>${d}</option>`).join('')} </select>
+                ${['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(d => `<option value="${d}" ${s.day_of_week === d ? 'selected' : ''}>${d}</option>`).join('')}
+              </select>
             </div>
             <div>
               <label>Start Time</label>
@@ -221,15 +255,11 @@
       const venue = document.getElementById(`venue-${id}`).value;
 
       const { error } = await sb.from('choir_schedule').update({
-        day_of_week: day,
-        start_time: start,
-        end_time: end,
-        venue: venue,
-        updated_at: new Date().toISOString()
+        day_of_week: day, start_time: start, end_time: end, venue: venue, updated_at: new Date().toISOString()
       }).eq('id', id);
 
       if (error) return alert(error.message);
-      alert('Schedule updated successfully! Members will see the change immediately.');
+      alert('Schedule updated successfully!');
     }
 
     // ── ANNOUNCEMENTS LOGIC ──
@@ -241,10 +271,7 @@
       if (!title || !content) return alert('Please fill in both fields.');
 
       const { error } = await sb.from('announcements').insert({ 
-        title: title, 
-        content: content, 
-        category: category, 
-        posted_by: 'Choir Administrator' 
+        title: title, content: content, category: category, posted_by: 'Choir Administrator' 
       });
       
       if (error) return alert(error.message);
@@ -254,8 +281,83 @@
       document.getElementById('aContent').value = '';
     }
 
-    // Initialize Schedule loading on page load
+    // ── MUSIC SCORES LOGIC ──
+    async function loadScores() {
+      const { data, error } = await sb.from('music_scores').select('*').eq('is_active', true).order('created_at', { ascending: false });
+      
+      if (error) return document.getElementById('scoreList').innerHTML = '<p>Error loading scores.</p>';
+      if (!data.length) return document.getElementById('scoreList').innerHTML = '<p style="color:var(--muted)">No scores uploaded yet.</p>';
+
+      document.getElementById('scoreList').innerHTML = data.map(s => `
+        <div class="score-item">
+          <div>
+            <strong style="display:block; font-size:14px;">${s.title}</strong>
+            <span style="font-size:12px; color:var(--muted);">${s.voice_part} · Uploaded ${new Date(s.created_at).toLocaleDateString()}</span>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <a href="${s.file_url}" target="_blank" class="btn sm" style="text-decoration:none; background:var(--green);">View</a>
+            <button class="btn danger sm" onclick="deleteScore('${s.id}')"><i class="ti ti-trash"></i></button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function uploadScore() {
+      const title = document.getElementById('scoreTitle').value.trim();
+      const voice = document.getElementById('scoreVoice').value;
+      const fileInput = document.getElementById('scoreFile');
+      const file = fileInput.files[0];
+
+      if (!title || !file) return alert('Please provide a title and select a file.');
+
+      const btn = document.getElementById('uploadBtn');
+      const status = document.getElementById('uploadStatus');
+      
+      btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader"></i> Uploading...'; status.style.display = 'block';
+
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+
+        // Using /image/upload exactly like your working old project
+        const url = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`;
+
+        const response = await fetch(url, { 
+            method: 'POST', 
+            body: formData
+        });
+
+        const cloudData = await response.json();
+        if (cloudData.error) throw new Error(cloudData.error.message);
+
+        const { error } = await sb.from('music_scores').insert({
+          title: title, voice_part: voice, file_url: cloudData.secure_url, uploaded_by: 'Admin'
+        });
+
+        if (error) throw error;
+
+        alert('Score uploaded successfully!');
+        document.getElementById('scoreTitle').value = '';
+        fileInput.value = '';
+        loadScores();
+
+      } catch (err) {
+        alert('Upload failed: ' + err.message);
+      } finally {
+        btn.disabled = false; btn.innerHTML = '<i class="ti ti-cloud-upload"></i> Upload to Cloudinary'; status.style.display = 'none';
+      }
+    }
+
+    async function deleteScore(id) {
+      if (!confirm('Remove this score from the library?')) return;
+      await sb.from('music_scores').update({ is_active: false }).eq('id', id);
+      loadScores();
+    }
+
+    // Initialize everything on page load
     loadSchedule();
+    loadScores();
   </script>
 </body>
 </html>

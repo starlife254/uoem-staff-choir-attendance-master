@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Music Library — Staff Choir</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../supabase-config.js"></script>
+  <script src="../cache-helper.js"></script>
+  <style>
+    body { font-family: Inter, sans-serif; background: #f8fafc; padding: 20px; color: #0f172a; }
+    .container { max-width: 900px; margin: 0 auto; }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+    .header h1 { font-size: 24px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+    .filters { display: flex; gap: 12px; margin-bottom: 20px; }
+    input, select { padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: inherit; font-size: 14px; width: 100%; outline: none; }
+    input:focus, select:focus { border-color: #4f46e5; box-shadow: 0 0 0 3px #eef2ff; }
+    
+    .score-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+    .score-card { background: #fff; border-radius: 12px; padding: 20px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: flex; flex-direction: column; justify-content: space-between; }
+    .score-title { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+    .score-meta { font-size: 12px; color: #64748b; margin-bottom: 16px; display: flex; align-items: center; gap: 6px; }
+    .pill { padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+    .pill.all { background: #eef2ff; color: #4f46e5; }
+    .pill.satb { background: #fef3c7; color: #92400e; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 10px; background: #4f46e5; color: #fff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px; border: none; cursor: pointer; width: 100%; }
+    .btn:hover { background: #4338ca; }
+    .empty { text-align: center; padding: 40px; color: #64748b; background: #fff; border-radius: 12px; border: 1px dashed #cbd5e1; }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <div class="header">
+      <h1><i class="ti ti-file-music" style="color:#4f46e5;"></i> Music Library</h1>
+      <a href="dashboard.html" style="text-decoration:none; color:#64748b; font-size:14px;"><i class="ti ti-arrow-left"></i> Back to Dashboard</a>
+    </div>
+
+    <div class="filters">
+      <input type="text" id="searchInput" placeholder="Search by song title..." onkeyup="renderScores()">
+      <select id="voiceFilter" onchange="renderScores()" style="max-width: 200px;">
+        <option value="All">All Parts</option>
+        <option value="Soprano">Soprano</option>
+        <option value="Alto">Alto</option>
+        <option value="Tenor">Tenor</option>
+        <option value="Bass">Bass</option>
+        <option value="Piano">Piano</option>
+      </select>
+    </div>
+
+    <div id="scoreGrid" class="score-grid">
+      <div class="empty">Loading scores...</div>
+    </div>
+  </div>
+
+  <script>
+    let allScores = [];
+
+    async function loadLibrary() {
+      const { data, error } = await sb.from('music_scores')
+        .select('*')
+        .eq('is_active', true)
+        .order('title', { ascending: true });
+      
+      if (error) {
+        document.getElementById('scoreGrid').innerHTML = '<div class="empty">Error loading library.</div>';
+        return;
+      }
+      
+      allScores = data || [];
+      renderScores();
+    }
+
+    function renderScores() {
+      const term = document.getElementById('searchInput').value.toLowerCase();
+      const voice = document.getElementById('voiceFilter').value;
+
+      const filtered = allScores.filter(s => {
+        const matchesSearch = s.title.toLowerCase().includes(term);
+        const matchesVoice = voice === 'All' || s.voice_part === voice;
+        return matchesSearch && matchesVoice;
+      });
+
+      if (!filtered.length) {
+        document.getElementById('scoreGrid').innerHTML = '<div class="empty">No scores found matching your search.</div>';
+        return;
+      }
+
+      document.getElementById('scoreGrid').innerHTML = filtered.map(s => {
+        const isAll = s.voice_part === 'All';
+        return `
+          <div class="score-card">
+            <div>
+              <div class="score-title">${s.title}</div>
+              <div class="score-meta">
+                <span class="pill ${isAll ? 'all' : 'satb'}">${s.voice_part}</span>
+                <span>· Added ${new Date(s.created_at).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}</span>
+              </div>
+            </div>
+            <a href="${s.file_url}" target="_blank" class="btn">
+              <i class="ti ti-download"></i> Download / View
+            </a>
+          </div>
+        `;
+      }).join('');
+    }
+
+    loadLibrary();
+  </script>
+</body>
+</html>

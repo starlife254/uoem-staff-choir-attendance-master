@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Choir Leaderboard — Staff Choir</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../supabase-config.js"></script>
+  <!-- Add html2canvas to download the leaderboard as an image -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  
+  <style>
+    :root {
+      --brand: #4f46e5; --bg: #f8fafc; --surface: #fff; --text: #111827;
+      --muted: #6b7280; --border: #e5e7eb; --gold: #f59e0b; --silver: #94a3b8; --bronze: #b45309;
+    }
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); padding: 20px; }
+    
+    .container { max-width: 800px; margin: 0 auto; }
+    
+    /* Header */
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+    .header h1 { font-size: 24px; font-weight: 800; display: flex; align-items: center; gap: 10px; }
+    .btn-download { background: var(--brand); color: #fff; padding: 10px 20px; border-radius: 40px; border: none; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; font-family: inherit; transition: 0.2s; }
+    .btn-download:hover { background: #4338ca; }
+
+    /* The Board to Capture */
+    #leaderboard-board { background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%); border-radius: 24px; padding: 32px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); border: 1px solid var(--border); }
+    
+    .board-header { text-align: center; margin-bottom: 30px; border-bottom: 2px dashed var(--border); padding-bottom: 20px; }
+    .board-header h2 { font-size: 28px; font-weight: 800; color: var(--brand); margin-bottom: 6px; letter-spacing: -0.5px; }
+    .board-header p { color: var(--muted); font-size: 14px; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
+
+    /* Podium (Top 3) */
+    .podium { display: flex; justify-content: center; align-items: flex-end; gap: 16px; margin-bottom: 40px; }
+    .podium-item { text-align: center; width: 120px; }
+    .podium-avatar { width: 64px; height: 64px; border-radius: 50%; margin: 0 auto 10px; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: 800; color: #fff; position: relative; }
+    .podium-avatar::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; border: 3px solid transparent; }
+    .rank-1 .podium-avatar { background: var(--gold); width: 76px; height: 76px; font-size: 28px; }
+    .rank-1 .podium-avatar::after { border-color: #fcd34d; }
+    .rank-2 .podium-avatar { background: var(--silver); }
+    .rank-2 .podium-avatar::after { border-color: #cbd5e1; }
+    .rank-3 .podium-avatar { background: var(--bronze); }
+    .rank-3 .podium-avatar::after { border-color: #d97706; }
+    
+    .podium-name { font-weight: 700; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .podium-score { font-size: 12px; color: var(--muted); font-weight: 600; margin-top: 2px; }
+    .podium-block { background: var(--surface); border: 1px solid var(--border); border-radius: 12px 12px 0 0; margin-top: 10px; padding: 10px; box-shadow: 0 -4px 10px rgba(0,0,0,0.02); }
+    .rank-1 .podium-block { height: 80px; background: #fffbeb; border-color: #fcd34d; }
+    .rank-2 .podium-block { height: 60px; }
+    .rank-3 .podium-block { height: 40px; }
+    .podium-rank { font-size: 24px; font-weight: 800; color: var(--border); }
+
+    /* List (4 onwards) */
+    .list-item { display: flex; align-items: center; gap: 16px; padding: 16px; background: #fff; border-radius: 16px; margin-bottom: 10px; border: 1px solid var(--border); box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+    .list-rank { width: 32px; font-size: 16px; font-weight: 800; color: var(--muted); text-align: center; }
+    .list-avatar { width: 44px; height: 44px; border-radius: 50%; background: #eef2ff; color: var(--brand); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 16px; flex-shrink: 0; }
+    .list-info { flex: 1; }
+    .list-name { font-weight: 700; font-size: 15px; }
+    .list-voice { font-size: 12px; color: var(--brand); font-weight: 600; margin-top: 2px; }
+    .list-score { text-align: right; }
+    .list-pct { font-size: 18px; font-weight: 800; color: var(--green); }
+    .list-meta { font-size: 11px; color: var(--muted); font-weight: 500; }
+
+    /* Loading/Empty */
+    .loading { text-align: center; padding: 40px; color: var(--muted); font-size: 14px; }
+    .loading i { font-size: 30px; margin-bottom: 10px; display: block; color: var(--brand); animation: spin 1s linear infinite; }
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <h1><i class="ti ti-trophy" style="color:var(--gold);"></i> Choir Leaderboard</h1>
+    <button class="btn-download" onclick="downloadImage()"><i class="ti ti-download"></i> Save Image</button>
+  </div>
+
+  <!-- This is the div that will be captured as an image -->
+  <div id="leaderboard-board">
+    <div class="board-header">
+      <h2>Top Attendance</h2>
+      <p>Current Streak & Attendance Rate</p>
+    </div>
+    
+    <div id="podiumArea" class="podium">
+      <!-- Podium goes here -->
+    </div>
+
+    <div id="listArea">
+      <!-- List 4+ goes here -->
+    </div>
+  </div>
+</div>
+
+<script>
+  async function loadLeaderboard() {
+    // 1. Fetch all active members
+    const { data: members, error: memErr } = await sb.from('members').select('*').eq('status', 'active').neq('role', 'admin');
+    if (memErr) return console.error(memErr);
+
+    // 2. Fetch all attendance records
+    const { data: attendance, error: attErr } = await sb.from('attendance').select('member_id, status');
+    if (attErr) return console.error(attErr);
+
+    // 3. Calculate stats for each member
+    const leaderboard = members.map(m => {
+      const memberAtt = attendance.filter(a => a.member_id === m.member_id);
+      
+      let present = 0, late = 0, absent = 0, excused = 0;
+      memberAtt.forEach(a => {
+        if (a.status === 'Present') present++;
+        else if (a.status === 'Late') late++;
+        else if (a.status === 'Absent') absent++; // For simplicity, we count all absents here. If you have apology_approved logic, add it.
+      });
+
+      const totalCounted = present + late + absent;
+      const rate = totalCounted > 0 ? Math.round(((present + late) / totalCounted) * 100) : 0;
+      
+      return {
+        ...m,
+        present, late, absent,
+        totalCounted,
+        rate
+      };
+    });
+
+    // 4. Sort by Attendance Rate (highest first), then by Present count
+    leaderboard.sort((a, b) => {
+      if (b.rate !== a.rate) return b.rate - a.rate;
+      return b.present - a.present;
+    });
+
+    // 5. Render Top 3 Podium
+    const top3 = leaderboard.slice(0, 3);
+    const rest = leaderboard.slice(3, 15); // Show next 12 members
+
+    const getInitials = (name) => name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase();
+    const podiumArea = document.getElementById('podiumArea');
+    
+    if (top3.length > 0) {
+      podiumArea.innerHTML = `
+        <!-- 2nd Place -->
+        ${top3[1] ? `
+          <div class="podium-item rank-2">
+            <div class="podium-avatar">${getInitials(top3[1].name)}</div>
+            <div class="podium-name">${top3[1].name.split(' ')[0]}</div>
+            <div class="podium-score">${top3[1].rate}%</div>
+            <div class="podium-block"><div class="podium-rank">2</div></div>
+          </div>
+        ` : ''}
+
+        <!-- 1st Place -->
+        ${top3[0] ? `
+          <div class="podium-item rank-1">
+            <div class="podium-avatar">👑</div>
+            <div class="podium-name">${top3[0].name.split(' ')[0]}</div>
+            <div class="podium-score">${top3[0].rate}%</div>
+            <div class="podium-block"><div class="podium-rank">1</div></div>
+          </div>
+        ` : ''}
+
+        <!-- 3rd Place -->
+        ${top3[2] ? `
+          <div class="podium-item rank-3">
+            <div class="podium-avatar">${getInitials(top3[2].name)}</div>
+            <div class="podium-name">${top3[2].name.split(' ')[0]}</div>
+            <div class="podium-score">${top3[2].rate}%</div>
+            <div class="podium-block"><div class="podium-rank">3</div></div>
+          </div>
+        ` : ''}
+      `;
+    } else {
+      podiumArea.innerHTML = '<div class="loading">Not enough data yet.</div>';
+    }
+
+    // 6. Render the rest of the list
+    const listArea = document.getElementById('listArea');
+    if (rest.length > 0) {
+      listArea.innerHTML = rest.map((m, index) => `
+        <div class="list-item">
+          <div class="list-rank">#${index + 4}</div>
+          <div class="list-avatar">${getInitials(m.name)}</div>
+          <div class="list-info">
+            <div class="list-name">${m.name}</div>
+            <div class="list-voice">${m.voice_part}</div>
+          </div>
+          <div class="list-score">
+            <div class="list-pct">${m.rate}%</div>
+            <div class="list-meta">${m.present + m.late} sessions</div>
+          </div>
+        </div>
+      `).join('');
+    } else {
+      listArea.innerHTML = '';
+    }
+  }
+
+  // Download as Image Function
+  function downloadImage() {
+    const board = document.getElementById('leaderboard-board');
+    const btn = document.querySelector('.btn-download');
+    const originalText = btn.innerHTML;
+    
+    btn.innerHTML = '<i class="ti ti-loader" style="animation:spin 1s linear infinite;"></i> Saving...';
+    btn.disabled = true;
+
+    // html2canvas converts the div to an image
+    html2canvas(board, {
+      scale: 2, // High resolution
+      backgroundColor: null,
+      useCORS: true
+    }).then(canvas => {
+      const link = document.createElement('a');
+      link.download = `Choir_Leaderboard_${new Date().toISOString().split('T')[0]}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+      
+      btn.innerHTML = originalText;
+      btn.disabled = false;
+    }).catch(err => {
+      console.error(err);
+      alert('Failed to save image.');
+      btn.innerHTML = originalText;
+      btn.disabled = false;
+    });
+  }
+
+  // Initialize
+  loadLeaderboard();
+</script>
+</body>
+</html>

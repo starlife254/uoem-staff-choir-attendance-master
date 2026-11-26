@@ -434,44 +434,90 @@ async function genAttendancePct() {
   if (!from || !to) return toast('Pick both dates', 'error');
   if (from > to)    return toast('"From" must be before "To"', 'error');
 
+  // Fetch ALL attendance in the date range
   const { data: att, error: aErr } = await sb.from('attendance')
     .select('*').gte('date', from).lte('date', to);
   if (aErr) return toast(aErr.message, 'error');
 
+  // Fetch all active members
   const { data: mems, error: mErr } = await sb.from('members')
-    .select('*').eq('status', 'active');
+    .select('*').eq('status', 'active').neq('role', 'admin');
   if (mErr) return toast(mErr.message, 'error');
 
-  const sessionDates = [...new Set((att || []).map(a => a.date))];
-  const totalSessions = sessionDates.length;
+  // Calculate the number of overall valid rehearsal days in this period
+  const dailyCounts = {};
+  (att || []).forEach(a => {
+    dailyCounts[a.date] = (dailyCounts[a.date] || 0) + 1;
+  });
+  
+  // Only count days where at least 3 people were marked as valid sessions
+  const validSessionDates = Object.keys(dailyCounts).filter(date => dailyCounts[date] >= 3);
+  const globalTotalSessions = validSessionDates.length;
+
+  if (globalTotalSessions === 0) {
+    document.getElementById('pctOut').innerHTML = `<div style="text-align:center; padding:40px; color:var(--muted);">
+      <i class="ti ti-calendar-off" style="font-size:32px; margin-bottom:12px;"></i>
+      <h3>No valid sessions found</h3>
+      <p>There are no dates in this period with sufficient attendance records.</p>
+    </div>`;
+    return;
+  }
 
   const stats = {};
   (mems || []).forEach(m => {
-    stats[m.member_id] = { member: m, present: 0, late: 0, absent: 0, total: 0 };
+    stats[m.member_id] = { 
+      member: m, 
+      present: 0, 
+      late: 0, 
+      absent: 0, 
+      excused: 0, 
+      missed: 0 // Records that don't exist for this member
+    };
   });
+
+  // Map through attendance and calculate accurately
   (att || []).forEach(a => {
     if (!stats[a.member_id]) return;
+    if (!validSessionDates.includes(a.date)) return; // Ignore non-session days
+    
     const s = stats[a.member_id];
-    if (a.status === 'Present') s.present++;
-    else if (a.status === 'Late') s.late++;
-    else if (a.status === 'Absent') s.absent++;
-    s.total++;
+    
+    if (a.status === 'Present') {
+      s.present++;
+    } else if (a.status === 'Late') {
+      s.late++;
+    } else if (a.status === 'Absent') {
+      if (a.apology_approved) {
+        s.excused++; // Approved absence doesn't hurt their score
+      } else {
+        s.absent++; // Unexcused absence hurts their score
+      }
+    }
   });
 
   const list = Object.values(stats).map(s => {
-    const attended = s.present + s.late;
-    const pct = totalSessions ? Math.round((attended / totalSessions) * 1000) / 10 : 0;
-    return { ...s, attended, pct };
+    // Total eligible sessions = Present + Late + Unexcused Absent
+    // Excused absences and unmarked days are removed from the denominator
+    const eligibleSessions = s.present + s.late + s.absent;
+    
+    // Calculate percentage based on THEIR eligible sessions, not global sessions
+    const pct = eligibleSessions > 0 
+      ? Math.round(((s.present + s.late) / eligibleSessions) * 1000) / 10 
+      : 0;
+
+    return { ...s, eligibleSessions, pct };
   });
 
   const voiceParts = ['Soprano', 'Alto', 'Tenor', 'Bass'];
   const grouped = {};
   voiceParts.forEach(v => grouped[v] = []);
+  
   list.forEach(s => {
     const v = s.member.voice_part || 'Other';
     if (!grouped[v]) grouped[v] = [];
     grouped[v].push(s);
   });
+  
   Object.values(grouped).forEach(arr => arr.sort((a, b) =>
     b.pct - a.pct || a.member.name.localeCompare(b.member.name)
   ));
@@ -479,18 +525,17 @@ async function genAttendancePct() {
   const overallAvg = list.length
     ? Math.round(list.reduce((s, x) => s + x.pct, 0) / list.length * 10) / 10
     : 0;
-  const perfect = list.filter(x => x.pct >= 100).length;
-  const below50 = list.filter(x => x.pct < 50).length;
+  const perfect = list.filter(x => x.pct >= 100 && x.eligibleSessions > 0).length;
+  const below50 = list.filter(x => x.pct < 50 && x.eligibleSessions > 0).length;
 
   pctData = {
-    from, to, totalSessions, voiceParts, grouped,
+    from, to, totalSessions: globalTotalSessions, voiceParts, grouped,
     overallAvg, perfect, below50, totalMembers: list.length,
-    sessionDates
+    sessionDates: validSessionDates
   };
 
   renderPct();
 }
-
 function pctColor(pct) {
   if (pct >= 85) return 'var(--green)';
   if (pct >= 70) return 'var(--primary)';

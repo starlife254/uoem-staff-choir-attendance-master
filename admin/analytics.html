@@ -23,14 +23,23 @@ body{font-family:Inter,sans-serif;background:linear-gradient(135deg,#f8fafc 0%,#
 .sidebar{position:fixed;top:0;left:0;width:var(--sidebar-w);height:100vh;background:linear-gradient(180deg,#0f172a 0%,#111c33 100%);color:#cbd5e1;display:flex;flex-direction:column;padding:20px 14px;z-index:100;overflow-y:auto}
 .sidebar .brand{display:flex;align-items:center;gap:10px;color:#fff;font-weight:700;font-size:16px;padding:0 8px 20px;border-bottom:1px solid #1e293b;margin-bottom:16px}
 .sidebar .brand i{font-size:24px;color:#60a5fa}
+.sidebar{
+  position:fixed;top:0;left:0;width:var(--sidebar-w);
+  height:100vh;
+  height:100dvh;          /* fixes mobile browser toolbar issue */
+  background:#0f172a;color:#cbd5e1;
+  display:flex;flex-direction:column;padding:20px 14px;
+  z-index:100;overflow-y:auto;
+}
 .sidebar-foot{
   margin-top:auto;
   padding-top:16px;
   border-top:1px solid #1e293b;
-  position:sticky;
-  bottom:0;
   background:#0f172a;
   padding-bottom:10px;
+  flex-shrink:0;          /* prevent footer from collapsing */
+  position:sticky;
+  bottom:0;
 }
 .sidebar-overlay{
   display:none;
@@ -111,18 +120,24 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--primary)
 <!-- SHARED ADMIN SHELL -->
 <aside class="sidebar" id="sidebar">
   <div class="brand"><i class="ti ti-music"></i> UoEM Staff Choir</div>
+  
   <div class="nav-group">Main</div>
   <a class="nav-item" href="index.html"><i class="ti ti-layout-dashboard"></i> Dashboard</a>
   <a class="nav-item" href="mark-attendance.html"><i class="ti ti-checklist"></i> Mark Attendance <span class="badge today">Today</span></a>
   <a class="nav-item" href="reports.html"><i class="ti ti-file-analytics"></i> Reports</a>
   <a class="nav-item" href="analytics.html"><i class="ti ti-chart-line"></i> Analytics</a>
+  
   <div class="nav-group">Management</div>
   <a class="nav-item" href="apologies.html"><i class="ti ti-mail"></i> Apologies <span class="badge" id="apologyBadge">0</span></a>
   <a class="nav-item" href="members.html"><i class="ti ti-users"></i> Members</a>
   <a class="nav-item" href="manage-members.html"><i class="ti ti-user-cog"></i> Manage Members</a>
-  <a class="nav-item" href="admin-communications.html"><i class="ti ti-user-cog"></i> Announcement</a>
+  
+  <!-- NEW LINKS ADDED HERE -->
+  <a class="nav-item" href="admin-communications.html"><i class="ti ti-speakerphone"></i> Announcements</a>
+  <a class="nav-item" href="poster-studio.html"><i class="ti ti-palette"></i> Graphics Studio</a>
   
   <a class="nav-item" href="executive.html"><i class="ti ti-crown"></i> Executive</a>
+  
   <div class="sidebar-foot">
     <a class="nav-item" href="#" onclick="logout();return false;"><i class="ti ti-logout"></i> Logout</a>
   </div>

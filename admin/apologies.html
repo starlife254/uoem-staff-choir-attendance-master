@@ -224,7 +224,9 @@ async function loadApologies() {
   
   const fStatus = document.getElementById('fStatus').value;
   const fType = document.getElementById('fType').value;
-  let q = sb.from('apology_requests').select('*').order('date', { ascending: true }).order('created_at', { ascending: false });
+  
+  // CHANGED: Order by updated_at descending instead of date
+  let q = sb.from('apology_requests').select('*').order('updated_at', { ascending: false }).order('created_at', { ascending: false });
   
   if (fStatus) q = q.eq('status', fStatus);
   if (fType) q = q.eq('apology_type', fType);
@@ -257,11 +259,9 @@ async function loadApologies() {
   const leaveMap = {};
 
   apologies.forEach(a => {
-    // If it's a multi-day leave OR it shares a reason with other dates
     const isMultiDay = (a.apology_type === 'absent' && a.end_date) || (a.apology_type === 'absent' && a.reason);
     
     if (isMultiDay) {
-      // Group by Member + Reason + Status to link the days together
       const key = `${a.member_id}_${a.reason}_${a.status}`;
       
       if (!leaveMap[key]) {
@@ -274,6 +274,7 @@ async function loadApologies() {
           reason: a.reason,
           status: a.status,
           created_at: a.created_at,
+          updated_at: a.updated_at, // Store this for sorting
           admin_notes: a.admin_notes,
           ids: [a.id],
           dates: [a.date]
@@ -282,11 +283,9 @@ async function loadApologies() {
       } else {
         leaveMap[key].ids.push(a.id);
         leaveMap[key].dates.push(a.date);
-        // Update end date to the latest date in the group
         if (a.date > leaveMap[key].end_date) leaveMap[key].end_date = a.date;
       }
     } else {
-      // Standard single-day apology (Late)
       grouped.push({
         is_group: false,
         id: a.id,
@@ -295,17 +294,23 @@ async function loadApologies() {
         reason: a.reason,
         status: a.status,
         created_at: a.created_at,
+        updated_at: a.updated_at, // Store this for sorting
         admin_notes: a.admin_notes,
         type: a.apology_type
       });
     }
   });
 
-  // Sort: Pending first, then by date descending
+  // CHANGED: Sort primarily by updated_at (newest processed first), then pending first
   grouped.sort((a, b) => {
+    // 1. Pending always stays at the very top
     if (a.status === 'pending' && b.status !== 'pending') return -1;
     if (b.status === 'pending' && a.status !== 'pending') return 1;
-    return new Date(b.start_date) - new Date(a.start_date);
+    
+    // 2. If both are processed (approved/rejected), sort by newest updated_at
+    const timeA = new Date(a.updated_at || a.created_at).getTime();
+    const timeB = new Date(b.updated_at || b.created_at).getTime();
+    return timeB - timeA;
   });
 
   document.getElementById('list').innerHTML = grouped.map(item => {
@@ -371,6 +376,7 @@ async function loadApologies() {
         </div>
         <div style="font-size:12px;color:var(--muted);margin-bottom:8px">
           ${dateDisplay} · Submitted ${new Date(item.created_at).toLocaleString()}
+          ${item.updated_at && item.updated_at !== item.created_at ? `<br><span style="color:var(--primary);font-weight:600;">Processed: ${new Date(item.updated_at).toLocaleString()}</span>` : ''}
         </div>
         <div class="reason-box"><strong>Reason:</strong> ${item.reason}</div>
         ${item.admin_notes ? `<div style="font-size:12px;color:var(--muted);margin-bottom:8px"><strong>Admin note:</strong> ${item.admin_notes}</div>` : ''}
@@ -403,7 +409,6 @@ async function decideSingle(id, status) {
 async function decideGroup(key, status) {
   const note = document.getElementById('note-' + key)?.value || '';
   
-  // Key format is: memberId_reason_status
   const parts = key.split('_');
   const memberId = parts[0];
   const reason = parts[1];
@@ -411,7 +416,6 @@ async function decideGroup(key, status) {
 
   if (!confirm(`Are you sure you want to ${status === 'approved' ? 'approve' : 'reject'} this entire leave request?`)) return;
 
-  // Update all rows matching this member + reason + current status
   const { data: rows, error } = await sb.from('apology_requests')
     .update({ status, admin_notes: note, updated_at: new Date().toISOString() })
     .eq('member_id', memberId)
@@ -429,6 +433,7 @@ async function decideGroup(key, status) {
   toast(`Leave ${status}`, 'success');
   loadApologies();
 }
+
 // Helper: Update attendance table for one or multiple dates
 async function updateAttendance(memberId, dates, type, session) {
   const attStatus = type === 'late' ? 'Late' : 'Absent';

@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Publications Centre | UoEM Staff Choir</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../supabase-config.js"></script>
+  <script src="../cache-helper.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  
+  <style>
+    :root {
+      --bg: #f1f5f9; --sidebar-bg: #ffffff; --border: #e2e8f0;
+      --text: #0f172a; --text-muted: #64748b;
+      --primary: #4f46e5; --primary-hover: #4338ca;
+      --success: #10b981; --danger: #ef4444; --gold: #f59e0b;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); height: 100vh; display: flex; overflow: hidden; }
+
+    /* --- SHARED SIDEBAR --- */
+    .app-sidebar { width: 70px; background: #0f172a; display: flex; flex-direction: column; align-items: center; padding: 20px 0; gap: 10px; z-index: 100; }
+    .app-sidebar button { width: 44px; height: 44px; border-radius: 12px; border: none; background: transparent; color: #94a3b8; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; }
+    .app-sidebar button:hover { background: #1e293b; color: #fff; }
+    .app-sidebar button.active { background: var(--primary); color: #fff; }
+    .app-sidebar i { font-size: 22px; }
+    .app-sidebar .spacer { flex: 1; }
+
+    /* --- MAIN LAYOUT --- */
+    .workspace { flex: 1; display: none; height: 100vh; overflow: hidden; }
+    .workspace.active { display: flex; }
+
+    /* --- PANELS --- */
+    .panel-left { width: 340px; background: #fff; border-right: 1px solid var(--border); display: flex; flex-direction: column; }
+    .panel-header { padding: 20px; border-bottom: 1px solid var(--border); font-weight: 700; font-size: 18px; display: flex; align-items: center; gap: 10px; }
+    .panel-scroll { flex: 1; overflow-y: auto; padding: 20px; }
+
+    .control-group { margin-bottom: 20px; }
+    .control-label { display: block; font-size: 12px; font-weight: 700; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; }
+    .form-control { width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px; font-family: inherit; font-size: 14px; background: #f8fafc; }
+    .form-control:focus { outline: none; border-color: var(--primary); background: #fff; }
+
+    /* --- CANVAS --- */
+    .panel-center { flex: 1; display: flex; align-items: center; justify-content: center; padding: 40px; background: #e2e8f0; overflow: auto; }
+    #graphic-canvas { background: #ffffff; width: 540px; height: 540px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); display: flex; flex-direction: column; overflow: hidden; border-radius: 16px; }
+
+    /* --- RIGHT PANEL --- */
+    .panel-right { width: 300px; background: #fff; border-left: 1px solid var(--border); padding: 20px; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; }
+    
+    .btn { padding: 12px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: 0.2s; width: 100%; font-size: 14px; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-success { background: var(--success); color: #fff; }
+    .btn-outline { background: #fff; border: 1px solid var(--border); color: var(--text); }
+
+    /* --- GRAPHIC TEMPLATES --- */
+    .tpl-leaderboard { padding: 40px; height: 100%; display: flex; flex-direction: column; }
+    .lb-header { text-align: center; margin-bottom: 30px; }
+    .lb-header h1 { font-family: 'Playfair Display', serif; font-size: 36px; margin-bottom: 8px; }
+    .lb-header p { font-size: 14px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 3px; font-weight: 700; }
+    .lb-list { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 12px; }
+    .lb-item { display: flex; align-items: center; background: #f8fafc; border-radius: 12px; padding: 16px 24px; border: 1px solid var(--border); }
+    .lb-rank { font-size: 24px; font-weight: 800; width: 50px; color: var(--text-muted); }
+    .lb-name { font-size: 18px; font-weight: 700; flex: 1; }
+    .lb-score { font-size: 20px; font-weight: 800; color: var(--primary); }
+    .lb-item.rank-1 { background: #fef3c7; border-color: #fcd34d; transform: scale(1.05); }
+    .lb-item.rank-2 { background: #f1f5f9; border-color: #cbd5e1; }
+    .lb-item.rank-3 { background: #ffedd5; border-color: #fdba74; }
+
+    /* --- ANNOUNCEMENTS LIST --- */
+    .ann-card { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+    .ann-card h3 { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+    .ann-card p { font-size: 13px; color: var(--text-muted); margin-bottom: 12px; line-height: 1.4; }
+    .ann-card img { width: 100%; height: auto; border-radius: 8px; margin-bottom: 12px; border: 1px solid var(--border); }
+    
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; margin-right: 6px; }
+    .badge.general { background: #e0f2fe; color: #0369a1; }
+    .badge.pinned { background: #fee2e2; color: #991b1b; }
+
+    .history-card { border: 1px solid var(--border); border-radius: 12px; padding: 12px; display: flex; gap: 12px; align-items: center; margin-bottom: 12px; }
+    .history-thumb { width: 60px; height: 60px; border-radius: 8px; object-fit: cover; }
+  </style>
+</head>
+<body>
+
+  <!-- FAR LEFT: MAIN APP NAVIGATION -->
+  <aside class="app-sidebar">
+    <button class="active" onclick="switchWorkspace('announcements', this)" title="Announcements Board">
+      <i class="ti ti-speakerphone"></i>
+    </button>
+    <button onclick="switchWorkspace('editor', this)" title="Graphics Studio">
+      <i class="ti ti-palette"></i>
+    </button>
+    <button onclick="switchWorkspace('history', this)" title="Publications History">
+      <i class="ti ti-history"></i>
+    </button>
+    <div class="spacer"></div>
+    <a href="index.html" style="text-decoration: none;">
+      <button title="Back to Dashboard"><i class="ti ti-arrow-left"></i></button>
+    </a>
+  </aside>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       WORKSPACE 1: ANNOUNCEMENTS BOARD
+       ═══════════════════════════════════════════════════════════ -->
+  <div id="workspace-announcements" class="workspace active">
+    <div class="panel-left" style="width: 400px;">
+      <div class="panel-header"><i class="ti ti-plus" style="color:var(--primary)"></i> Create Announcement</div>
+      <div class="panel-scroll">
+        <div class="control-group">
+          <label class="control-label">Title</label>
+          <input type="text" id="ann-title" class="form-control" placeholder="e.g., Mandatory Rehearsal">
+        </div>
+        <div class="control-group">
+          <label class="control-label">Category</label>
+          <select id="ann-category" class="form-control">
+            <option value="General">General Notice</option>
+            <option value="Rehearsal">Rehearsal</option>
+            <option value="Event">Event</option>
+            <option value="Urgent">Urgent</option>
+          </select>
+        </div>
+        <div class="control-group">
+          <label class="control-label">Target Audience</label>
+          <select id="ann-audience" class="form-control">
+            <option value="All">All Active Members</option>
+            <option value="Soprano">Soprano Only</option>
+            <option value="Alto">Alto Only</option>
+            <option value="Tenor">Tenor Only</option>
+            <option value="Bass">Bass Only</option>
+          </select>
+        </div>
+        <div class="control-group">
+          <label class="control-label">Message</label>
+          <textarea id="ann-content" class="form-control" rows="5" placeholder="Write your message here..."></textarea>
+        </div>
+        <div class="control-group">
+          <label class="control-label">Attach Graphic (Optional)</label>
+          <input type="file" id="ann-image" class="form-control" accept="image/*">
+        </div>
+        <div class="control-group">
+          <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+            <input type="checkbox" id="ann-pinned" style="width:18px; height:18px;">
+            <span style="font-weight:600; font-size:14px;">Pin to Top of Dashboard</span>
+          </label>
+        </div>
+        <button class="btn btn-primary" onclick="publishAnnouncement()">
+          <i class="ti ti-send"></i> Publish Announcement
+        </button>
+      </div>
+    </div>
+
+    <div class="panel-center" style="align-items: flex-start; padding: 40px; background: #f8fafc; display: block; overflow-y: auto;">
+      <h2 style="font-size: 24px; font-weight: 800; margin-bottom: 20px;">Live Announcements Board</h2>
+      <div id="admin-announcements-list" style="max-width: 800px;"></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       WORKSPACE 2: GRAPHICS STUDIO
+       ═══════════════════════════════════════════════════════════ -->
+  <div id="workspace-editor" class="workspace">
+    <div class="panel-left">
+      <div class="panel-header"><i class="ti ti-adjustments" style="color:var(--primary)"></i> Graphic Settings</div>
+      <div class="panel-scroll">
+        <div class="control-group">
+          <label class="control-label">Template</label>
+          <select id="g-template" class="form-control" onchange="renderGraphic()">
+            <option value="top3">Leaderboard (Top 3)</option>
+            <option value="top5" selected>Leaderboard (Top 5)</option>
+          </select>
+        </div>
+        <div class="control-group">
+          <label class="control-label">Title</label>
+          <input type="text" id="g-title" class="form-control" value="Top Attendance" onkeyup="updateCanvasText()">
+        </div>
+        <div class="control-group">
+          <label class="control-label">Subtitle</label>
+          <input type="text" id="g-subtitle" class="form-control" value="Academic Year 2026" onkeyup="updateCanvasText()">
+        </div>
+        <button class="btn btn-outline" onclick="renderGraphic()"><i class="ti ti-refresh"></i> Refresh Data</button>
+      </div>
+    </div>
+
+    <div class="panel-center">
+      <div id="graphic-canvas"></div>
+    </div>
+
+    <div class="panel-right">
+      <h3 style="font-size: 16px; font-weight: 700;">Export Options</h3>
+      <button class="btn btn-outline" onclick="downloadImage()"><i class="ti ti-download"></i> Download PNG</button>
+      <hr style="border: none; border-top: 1px solid var(--border); margin: 10px 0;">
+      <p style="font-size: 12px; color: var(--text-muted);">Save this to Cloudinary & Supabase for later use.</p>
+      <button class="btn btn-success" onclick="saveGraphicToHistory()"><i class="ti ti-cloud-upload"></i> Save to History</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       WORKSPACE 3: HISTORY (admin_publications)
+       ═══════════════════════════════════════════════════════════ -->
+  <div id="workspace-history" class="workspace">
+    <div class="panel-center" style="display: block; padding: 40px; background: #f8fafc; overflow-y: auto;">
+      <h2 style="font-size: 24px; font-weight: 800; margin-bottom: 20px;">Saved Graphics History</h2>
+      <div id="history-list" style="max-width: 800px; display: flex; flex-direction: column; gap: 16px;"></div>
+    </div>
+  </div>
+
+  <script>
+    // --- UI NAVIGATION ---
+    function switchWorkspace(workspaceId, btn) {
+      document.querySelectorAll('.workspace').forEach(w => w.classList.remove('active'));
+      document.querySelectorAll('.app-sidebar button').forEach(b => b.classList.remove('active'));
+      
+      document.getElementById(`workspace-${workspaceId}`).classList.add('active');
+      btn.classList.add('active');
+
+      if (workspaceId === 'editor') renderGraphic();
+      if (workspaceId === 'history') loadHistory();
+      if (workspaceId === 'announcements') loadAdminAnnouncements();
+    }
+
+    // --- GRAPHICS LOGIC ---
+    async function renderGraphic() {
+      const canvas = document.getElementById('graphic-canvas');
+      canvas.innerHTML = '<div style="display:flex; align-items:center; justify-content:center; height:100%;"><i class="ti ti-loader" style="font-size:40px; color:var(--primary); animation:spin 1s linear infinite;"></i></div>';
+
+      const limit = parseInt(document.getElementById('g-template').value.replace('top', ''));
+      const title = document.getElementById('g-title').value;
+      const subtitle = document.getElementById('g-subtitle').value;
+
+      // Fetch Real Data
+      const { data: members } = await sb.from('members').select('name, member_id').eq('status', 'active').neq('role', 'admin');
+      const { data: att } = await sb.from('attendance').select('member_id, status');
+
+      if (!members || members.length === 0) {
+        canvas.innerHTML = '<p style="padding:40px; text-align:center;">No active members found.</p>'; return;
+      }
+
+      let stats = members.map(m => {
+        const mAtt = att.filter(a => a.member_id === m.member_id);
+        const present = mAtt.filter(a => a.status === 'Present').length;
+        const late = mAtt.filter(a => a.status === 'Late').length;
+        const total = mAtt.length;
+        return { name: m.name, rate: total > 0 ? Math.round(((present + late) / total) * 100) : 0 };
+      });
+
+      stats.sort((a, b) => b.rate - a.rate);
+      const top = stats.slice(0, limit);
+
+      canvas.innerHTML = `
+        <div class="tpl-leaderboard">
+          <div class="lb-header">
+            <h1 id="canvas-title">${title}</h1>
+            <p id="canvas-subtitle">${subtitle}</p>
+          </div>
+          <div class="lb-list">
+            ${top.map((m, i) => {
+              const cls = i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : '';
+              return `<div class="lb-item ${cls}"><div class="lb-rank">${i+1}</div><div class="lb-name">${m.name}</div><div class="lb-score">${m.rate}%</div></div>`;
+            }).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    function updateCanvasText() {
+      document.getElementById('canvas-title').innerText = document.getElementById('g-title').value;
+      document.getElementById('canvas-subtitle').innerText = document.getElementById('g-subtitle').value;
+    }
+
+    async function downloadImage() {
+      const canvas = document.getElementById('graphic-canvas');
+      const res = await html2canvas(canvas, { scale: 2, backgroundColor: '#ffffff' });
+      const link = document.createElement('a');
+      link.download = `Graphic_${Date.now()}.png`;
+      link.href = res.toDataURL('image/png');
+      link.click();
+    }
+
+    async function saveGraphicToHistory() {
+      const canvas = document.getElementById('graphic-canvas');
+      const res = await html2canvas(canvas, { scale: 2, backgroundColor: '#ffffff' });
+      
+      res.toBlob(async (blob) => {
+        const formData = new FormData();
+        formData.append('file', blob, 'graphic.png');
+        formData.append('upload_preset', 'uoem_choir_uploads');
+
+        const response = await fetch('https://api.cloudinary.com/v1_1/surgtbdr/image/upload', { method: 'POST', body: formData });
+        const cloudData = await response.json();
+        
+        if (cloudData.error) return alert(cloudData.error.message);
+
+        await sb.from('admin_publications').insert({
+          title: document.getElementById('g-title').value,
+          category: 'Graphic',
+          image_url: cloudData.secure_url,
+          created_by: 'Admin'
+        });
+        alert('Saved to history successfully!');
+      }, 'image/png');
+    }
+
+    async function loadHistory() {
+      const list = document.getElementById('history-list');
+      const { data } = await sb.from('admin_publications').select('*').order('created_at', { ascending: false });
+      
+      if (!data || data.length === 0) {
+        list.innerHTML = '<p>No history found.</p>'; return;
+      }
+
+      list.innerHTML = data.map(p => `
+        <div class="history-card">
+          <img src="${p.image_url}" class="history-thumb">
+          <div style="flex:1">
+            <div style="font-weight:700;">${p.title}</div>
+            <div style="font-size:12px; color:var(--text-muted);">${new Date(p.created_at).toLocaleDateString()}</div>
+          </div>
+          <a href="${p.image_url}" target="_blank" class="btn btn-outline" style="width:auto; padding:8px 16px;">View</a>
+        </div>
+      `).join('');
+    }
+
+    // --- ANNOUNCEMENTS LOGIC ---
+    async function publishAnnouncement() {
+      const title = document.getElementById('ann-title').value;
+      const content = document.getElementById('ann-content').value;
+      const category = document.getElementById('ann-category').value;
+      const audience = document.getElementById('ann-audience').value;
+      const pinned = document.getElementById('ann-pinned').checked;
+      const imageFile = document.getElementById('ann-image').files[0];
+
+      if (!title || !content) return alert('Title and message are required.');
+
+      let imageUrl = null;
+      if (imageFile) {
+        const formData = new FormData();
+        formData.append('file', imageFile);
+        formData.append('upload_preset', 'uoem_choir_uploads');
+        
+        const res = await fetch('https://api.cloudinary.com/v1_1/surgtbdr/image/upload', { method: 'POST', body: formData });
+        const cloudData = await res.json();
+        if (cloudData.error) return alert("Image upload failed: " + cloudData.error.message);
+        imageUrl = cloudData.secure_url;
+      }
+
+      const { error } = await sb.from('announcements').insert({
+        title, content, category, target_audience: audience, is_pinned: pinned, image_url: imageUrl
+      });
+
+      if (error) return alert(error.message);
+
+      alert('Announcement published successfully!');
+      document.getElementById('ann-title').value = '';
+      document.getElementById('ann-content').value = '';
+      document.getElementById('ann-image').value = '';
+      loadAdminAnnouncements();
+    }
+
+    async function loadAdminAnnouncements() {
+      const list = document.getElementById('admin-announcements-list');
+      const { data, error } = await sb.from('announcements').select('*').order('created_at', { ascending: false });
+      
+      if (error || !data.length) {
+        list.innerHTML = '<p>No announcements yet.</p>'; return;
+      }
+
+      list.innerHTML = data.map(a => `
+        <div class="ann-card">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
+            <div>
+              ${a.is_pinned ? '<span class="badge pinned">📌 Pinned</span>' : ''}
+              <span class="badge general">${a.category}</span>
+              <span style="font-size:12px; font-weight:600; color:var(--text-muted);">${a.target_audience}</span>
+            </div>
+            <button class="btn btn-outline" style="width:auto; padding:4px 12px; font-size:12px;" onclick="deleteAnnouncement('${a.id}')">Delete</button>
+          </div>
+          <h3>${a.title}</h3>
+          <p>${a.content}</p>
+          ${a.image_url ? `<img src="${a.image_url}">` : ''}
+          <div style="font-size:12px; color:var(--text-muted); margin-top:10px;">Posted: ${new Date(a.created_at).toLocaleString()}</div>
+        </div>
+      `).join('');
+    }
+
+    async function deleteAnnouncement(id) {
+      if (!confirm('Delete this announcement?')) return;
+      await sb.from('announcements').delete().eq('id', id);
+      loadAdminAnnouncements();
+    }
+
+    // Initialize
+    window.addEventListener('load', () => {
+      renderGraphic();
+      loadAdminAnnouncements();
+    });
+  </script>
+</body>
+</html>
